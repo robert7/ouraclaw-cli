@@ -5,6 +5,7 @@ import {
   buildAuthorizeUrl,
   captureOAuthCallback,
   exchangeCodeForTokens,
+  generateOAuthState,
 } from "./oauth";
 import { readConfig, updateConfig, saveTokens } from "./token-store";
 import { createCronJobs, removeCronJobs } from "./cron-setup";
@@ -199,12 +200,13 @@ async function setupCommand(): Promise<void> {
     }
 
     if (!skipOAuth) {
-      const authorizeUrl = buildAuthorizeUrl(clientId);
+      const oauthState = generateOAuthState();
+      const authorizeUrl = buildAuthorizeUrl(clientId, oauthState);
       console.log("\nOpening browser to authorize OuraClaw...");
       openUrl(authorizeUrl);
 
       console.log("Waiting for OAuth callback on http://localhost:9876/callback ...");
-      const code = await captureOAuthCallback();
+      const code = await captureOAuthCallback(oauthState);
 
       await withProgress("Exchanging code for tokens", async () => {
         const tokenResponse = await exchangeCodeForTokens(clientId, clientSecret, code);

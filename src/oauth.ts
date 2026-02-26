@@ -1,5 +1,6 @@
 import http from "http";
 import https from "https";
+import crypto from "crypto";
 import { URL } from "url";
 import { OuraTokenResponse } from "./types";
 
@@ -8,12 +9,17 @@ const TOKEN_URL = "https://api.ouraring.com/oauth/token";
 const REDIRECT_URI = "http://localhost:9876/callback";
 const SCOPES = "email personal daily heartrate workout session spo2 tag stress heart_health ring_configuration";
 
-export function buildAuthorizeUrl(clientId: string): string {
+export function generateOAuthState(): string {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+export function buildAuthorizeUrl(clientId: string, state: string): string {
   const params = new URLSearchParams({
     response_type: "code",
     client_id: clientId,
     redirect_uri: REDIRECT_URI,
     scope: SCOPES,
+    state,
   });
   return `${AUTHORIZE_URL}?${params.toString()}`;
 }
@@ -84,9 +90,28 @@ function postTokenRequest(
   });
 }
 
-export function captureOAuthCallback(): Promise<string> {
+export function captureOAuthCallback(expectedState: string): Promise<string> {
   return new Promise((resolve, reject) => {
+    let settled = false;
+    let timeoutId: NodeJS.Timeout | undefined;
+
+    const settle = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      server.close();
+      fn();
+    };
+
     const server = http.createServer((req, res) => {
+      if (settled) {
+        res.writeHead(409);
+        res.end("OAuth flow already completed");
+        return;
+      }
+
       if (!req.url?.startsWith("/callback")) {
         res.writeHead(404);
         res.end("Not found");
@@ -96,20 +121,33 @@ export function captureOAuthCallback(): Promise<string> {
       const url = new URL(req.url, `http://localhost:9876`);
       const code = url.searchParams.get("code");
       const error = url.searchParams.get("error");
+      const state = url.searchParams.get("state");
 
       if (error) {
         res.writeHead(400);
         res.end(`Authorization error: ${error}`);
-        server.close();
-        reject(new Error(`OAuth error: ${error}`));
+        settle(() => reject(new Error(`OAuth error: ${error}`)));
         return;
       }
 
       if (!code) {
         res.writeHead(400);
         res.end("Missing authorization code");
-        server.close();
-        reject(new Error("Missing authorization code in callback"));
+        settle(() => reject(new Error("Missing authorization code in callback")));
+        return;
+      }
+
+      if (!state) {
+        res.writeHead(400);
+        res.end("Missing OAuth state");
+        settle(() => reject(new Error("Missing OAuth state in callback")));
+        return;
+      }
+
+      if (state !== expectedState) {
+        res.writeHead(400);
+        res.end("Invalid OAuth state");
+        settle(() => reject(new Error("OAuth state mismatch in callback")));
         return;
       }
 
@@ -117,22 +155,20 @@ export function captureOAuthCallback(): Promise<string> {
       res.end(
         "<html><body><h2>OuraClaw authorized!</h2><p>You can close this tab and return to the terminal.</p></body></html>",
       );
-      server.close();
-      resolve(code);
+      settle(() => resolve(code));
     });
 
-    server.listen(9876, () => {
+    server.listen(9876, "localhost", () => {
       // Server is ready, waiting for callback
     });
 
     server.on("error", (err) => {
-      reject(new Error(`Failed to start OAuth callback server: ${err.message}`));
+      settle(() => reject(new Error(`Failed to start OAuth callback server: ${err.message}`)));
     });
 
     // Timeout after 2 minutes
-    setTimeout(() => {
-      server.close();
-      reject(new Error("OAuth callback timed out after 2 minutes"));
+    timeoutId = setTimeout(() => {
+      settle(() => reject(new Error("OAuth callback timed out after 2 minutes")));
     }, 120_000);
   });
 }
