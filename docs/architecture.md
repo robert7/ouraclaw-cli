@@ -18,6 +18,8 @@ The state file stores:
 - Oura client credentials and tokens
 - fixed threshold configuration
 - baseline tuning configuration
+- schedule configuration for channel, target, delivery language, timezone, enabled job types, and stored OpenClaw cron
+  job IDs
 - baseline snapshot metadata and metric bounds
 - confirmed optimized-morning delivery state
 
@@ -64,3 +66,23 @@ alerts for the rest of the same calendar day.
 
 The OpenClaw skill does not reimplement business logic. It invokes `ouraclaw-cli` directly, defaults to one command per
 execution, prefers JSON for automation, and uses `--text` only when it needs a sendable recap string.
+
+## Scheduling
+
+`ouraclaw-cli` can manage OpenClaw cron jobs directly through `schedule setup`, `schedule status`, `schedule disable`,
+and `schedule migrate-from-ouraclaw-plugin`.
+
+Three schedule types are supported:
+
+- fixed-time morning recap
+- fixed-time evening recap
+- optimized morning watcher
+
+The optimized watcher is a repeated cron window rather than a single time. It can run multiple times between a start
+and end time so the user can be notified as soon as Oura data is ready. When the watcher interval cannot be expressed
+as a single cron expression without drifting outside the requested window, the CLI stores multiple watcher cron job IDs
+and manages them as one logical schedule.
+
+All managed schedules use the shipped Oura skill in `skills/oura/`, inject the configured delivery language, and direct
+the agent to send to the configured OpenClaw channel and target. Optimized watcher jobs also instruct the agent to
+confirm delivery only after a successful send.

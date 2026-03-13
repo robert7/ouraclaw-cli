@@ -19,6 +19,9 @@ describe('state-store', () => {
     expect(state.schemaVersion).toBe(1);
     expect(state.thresholds.sleepScoreMin).toBe(75);
     expect(state.baselineConfig.lowerPercentile).toBe(25);
+    expect(state.schedule.deliveryLanguage).toBe('English');
+    expect(state.schedule.optimizedWatcherDeliveryMode).toBe('unusual-only');
+    expect(state.schedule.optimizedWatcherIntervalMinutes).toBe(60);
     expect(state.deliveries).toEqual({});
     expect(state.auth.accessToken).toBeUndefined();
   });
@@ -60,6 +63,20 @@ describe('state-store', () => {
         lowerPercentile: 25,
         breachMetricCount: 1,
       },
+      schedule: {
+        enabled: false,
+        timezone: 'UTC',
+        deliveryLanguage: 'English',
+        morningEnabled: false,
+        morningTime: '07:00',
+        eveningEnabled: false,
+        eveningTime: '21:00',
+        optimizedWatcherEnabled: false,
+        optimizedWatcherDeliveryMode: 'unusual-only',
+        optimizedWatcherStart: '08:00',
+        optimizedWatcherEnd: '13:00',
+        optimizedWatcherIntervalMinutes: 60,
+      },
       deliveries: {},
     });
 
@@ -73,12 +90,20 @@ describe('state-store', () => {
           lastDeliveryKey: 'abc123',
         },
       },
+      schedule: {
+        deliveryLanguage: 'Slovak',
+        optimizedWatcherDeliveryMode: 'daily-when-ready',
+        optimizedWatcherCronJobIds: ['job-1', 'job-2'],
+      },
     });
 
     expect(next.auth.accessToken).toBe('fresh-token');
     expect(next.thresholds.sleepScoreMin).toBe(75);
     expect(next.thresholds.readinessScoreMin).toBe(72);
     expect(next.deliveries?.morningOptimized?.lastDeliveryKey).toBe('abc123');
+    expect(next.schedule.deliveryLanguage).toBe('Slovak');
+    expect(next.schedule.optimizedWatcherDeliveryMode).toBe('daily-when-ready');
+    expect(next.schedule.optimizedWatcherCronJobIds).toEqual(['job-1', 'job-2']);
 
     const stateFile = path.join(home, 'ouraclaw-cli.json');
     const dirMode = fs.statSync(home).mode & 0o777;

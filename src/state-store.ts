@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import {
   DEFAULT_BASELINE_CONFIG,
+  DEFAULT_SCHEDULE_CONFIG,
   DEFAULT_THRESHOLDS,
   SCHEMA_VERSION,
   getLegacyConfigFilePath,
@@ -23,6 +24,20 @@ export function defaultState(): OuraCliState {
     baselineConfig: {
       lowerPercentile: DEFAULT_BASELINE_CONFIG.lowerPercentile,
       breachMetricCount: DEFAULT_BASELINE_CONFIG.breachMetricCount,
+    },
+    schedule: {
+      enabled: DEFAULT_SCHEDULE_CONFIG.enabled,
+      timezone: DEFAULT_SCHEDULE_CONFIG.timezone,
+      deliveryLanguage: DEFAULT_SCHEDULE_CONFIG.deliveryLanguage,
+      morningEnabled: DEFAULT_SCHEDULE_CONFIG.morningEnabled,
+      morningTime: DEFAULT_SCHEDULE_CONFIG.morningTime,
+      eveningEnabled: DEFAULT_SCHEDULE_CONFIG.eveningEnabled,
+      eveningTime: DEFAULT_SCHEDULE_CONFIG.eveningTime,
+      optimizedWatcherEnabled: DEFAULT_SCHEDULE_CONFIG.optimizedWatcherEnabled,
+      optimizedWatcherDeliveryMode: DEFAULT_SCHEDULE_CONFIG.optimizedWatcherDeliveryMode,
+      optimizedWatcherStart: DEFAULT_SCHEDULE_CONFIG.optimizedWatcherStart,
+      optimizedWatcherEnd: DEFAULT_SCHEDULE_CONFIG.optimizedWatcherEnd,
+      optimizedWatcherIntervalMinutes: DEFAULT_SCHEDULE_CONFIG.optimizedWatcherIntervalMinutes,
     },
     deliveries: {},
   };
@@ -64,12 +79,26 @@ function normalizeState(input: Partial<OuraCliState> | null): OuraCliState {
           lastDeliveryKey: morningOptimizedDelivery.lastDeliveryKey,
         }
       : undefined;
+  const normalizedOptimizedWatcherCronJobIds = Array.isArray(
+    input.schedule?.optimizedWatcherCronJobIds
+  )
+    ? input.schedule?.optimizedWatcherCronJobIds.filter(
+        (id): id is string => typeof id === 'string' && id.length > 0
+      )
+    : undefined;
 
   return {
     schemaVersion: SCHEMA_VERSION,
     auth: { ...base.auth, ...(input.auth ?? {}) },
     thresholds: { ...base.thresholds, ...(input.thresholds ?? {}) },
     baselineConfig: { ...base.baselineConfig, ...(input.baselineConfig ?? {}) },
+    schedule: {
+      ...base.schedule,
+      ...(input.schedule ?? {}),
+      ...(normalizedOptimizedWatcherCronJobIds
+        ? { optimizedWatcherCronJobIds: normalizedOptimizedWatcherCronJobIds }
+        : {}),
+    },
     baseline: input.baseline ?? base.baseline,
     deliveries: {
       ...base.deliveries,
@@ -143,6 +172,18 @@ export function updateState(patch: Partial<OuraCliState>): OuraCliState {
     baselineConfig: patch.baselineConfig
       ? { ...current.baselineConfig, ...patch.baselineConfig }
       : current.baselineConfig,
+    schedule: patch.schedule
+      ? {
+          ...current.schedule,
+          ...patch.schedule,
+          optimizedWatcherCronJobIds:
+            patch.schedule.optimizedWatcherCronJobIds === undefined
+              ? current.schedule.optimizedWatcherCronJobIds
+              : patch.schedule.optimizedWatcherCronJobIds.filter(
+                  (id): id is string => typeof id === 'string' && id.length > 0
+                ),
+        }
+      : current.schedule,
     baseline: patch.baseline === undefined ? current.baseline : patch.baseline,
     deliveries: patch.deliveries
       ? {

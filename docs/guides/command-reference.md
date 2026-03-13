@@ -23,7 +23,8 @@ ouraclaw-cli [global-options] <command> [command-options]
 
 ### `ouraclaw-cli setup`
 
-Interactive onboarding. Collects client credentials, runs OAuth, and stores initial threshold configuration.
+Interactive onboarding. Collects client credentials, runs OAuth, stores threshold and baseline defaults, and can
+optionally hand off into the OpenClaw scheduling walkthrough when `openclaw` is available.
 
 ### `ouraclaw-cli auth status`
 
@@ -64,16 +65,46 @@ Prints all config/state fields or a specific key. Useful keys include:
 
 Updates a supported config key. Numeric threshold values are validated before writing state.
 
+Useful schedule keys include:
+
+- `schedule.deliveryLanguage`
+- `schedule.timezone`
+- `schedule.optimizedWatcherDeliveryMode`
+
+### `ouraclaw-cli schedule setup`
+
+Interactive scheduler walkthrough. Detects legacy OuraClaw config and cron jobs, asks for delivery channel/target,
+delivery language, timezone, which schedules to enable, and the optimized watcher delivery mode, then creates or
+replaces the managed OpenClaw cron jobs.
+
+### `ouraclaw-cli schedule status`
+
+Prints JSON describing stored schedule config, whether `openclaw` is available, whether matching managed cron jobs
+currently exist, and whether legacy OuraClaw cron jobs are still present.
+
+### `ouraclaw-cli schedule disable`
+
+Removes all CLI-managed OpenClaw cron jobs and marks scheduling as disabled without touching auth or summary state.
+
+### `ouraclaw-cli schedule migrate-from-ouraclaw-plugin`
+
+Inspects the old OuraClaw plugin config and known legacy cron jobs, removes the old cron jobs, and imports useful
+schedule defaults into current CLI state without creating new jobs.
+
 ### `ouraclaw-cli summary morning`
 
 Builds the standard morning recap. Default output is JSON; `--text` prints the sendable message directly.
 
-### `ouraclaw-cli summary morning-optimized`
+### `ouraclaw-cli summary morning-optimized [--delivery-mode unusual-only|daily-when-ready]`
 
 Returns JSON for the optimized alerting flow. The result includes `dataReady`, `ordinary`, `shouldSend`, optional
-`deliveryKey`, `today`, optional `baseline`, optional `breachedMetrics`, and ordered `reasons`.
+`deliveryKey`, `deliveryMode`, optional `deliveryType`, `today`, optional `baseline`, optional `breachedMetrics`, and
+ordered `reasons`.
 
-### `ouraclaw-cli summary morning-optimized-confirm --delivery-key <deliveryKey>`
+In `daily-when-ready` mode, an ordinary but ready day can still return `shouldSend: true` with
+`deliveryType: "morning-summary"` plus a nested `morningSummary` payload.
+
+### `ouraclaw-cli summary morning-optimized-confirm --delivery-key <deliveryKey> [--delivery-mode unusual-only|daily-when-ready]`
 
 Confirms that an optimized morning alert was actually delivered. This stores same-day delivery state so later
 `summary morning-optimized` runs can suppress duplicates for the rest of the day.

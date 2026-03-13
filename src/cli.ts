@@ -12,7 +12,7 @@ import {
   refreshStoredAuth,
   tokenResponseToAuthPatch,
 } from './auth';
-import { CALLBACK_PORT, OURA_ENDPOINTS } from './config';
+import { CALLBACK_PORT, DEFAULT_SCHEDULE_CONFIG, OURA_ENDPOINTS } from './config';
 import {
   defaultBaselineConfig,
   getAutomaticBaselineWindow,
@@ -27,6 +27,20 @@ import { evaluateMorningOptimized } from './morning-optimized';
 import { exchangeCodeForTokens, buildAuthorizeUrl, captureOAuthCallback } from './oauth';
 import { fetchOuraData } from './oura-client';
 import { printJson, printText } from './output';
+import {
+  ChannelTarget,
+  createOrReplaceScheduleJobs,
+  getConfiguredChannelTargets,
+  getLegacyScheduleDefaults,
+  getScheduleStatus,
+  inspectLegacySchedule,
+  isOpenClawAvailable,
+  isValidTimeOfDay,
+  isValidTimezone,
+  listOpenClawCronJobs,
+  removeLegacyOuraClawJobs,
+  removeManagedScheduleJobs,
+} from './schedule';
 import { readState, updateState, writeState } from './state-store';
 import { buildEveningSummary, buildMorningSummary, selectPreferredSleepRecord } from './summaries';
 import { defaultThresholds, validateThresholds } from './thresholds';
@@ -40,6 +54,8 @@ import {
   OuraCliState,
   OuraEndpoint,
   OuraRecord,
+  OptimizedWatcherDeliveryMode,
+  ScheduleConfig,
   SleepPeriod,
 } from './types';
 
@@ -53,6 +69,333 @@ function openExternalUrl(url: string): Promise<void> {
     return execFileAsync('cmd', ['/c', 'start', '', url]).then(() => undefined);
   }
   return execFileAsync('xdg-open', [url]).then(() => undefined);
+}
+
+function getSuggestedTimezone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_SCHEDULE_CONFIG.timezone;
+}
+
+function isOptimizedWatcherDeliveryMode(value: string): value is OptimizedWatcherDeliveryMode {
+  return value === 'unusual-only' || value === 'daily-when-ready';
+}
+
+function createPromptInterface() {
+  return readline.createInterface({ input, output });
+}
+
+async function ask(
+  rl: readline.Interface,
+  question: string,
+  defaultValue?: string
+): Promise<string> {
+  const suffix = defaultValue ? ` (${defaultValue})` : '';
+  const answer = await rl.question(`${question}${suffix}: `);
+  return answer.trim() || defaultValue || '';
+}
+
+async function confirm(
+  rl: readline.Interface,
+  question: string,
+  defaultYes = true
+): Promise<boolean> {
+  const hint = defaultYes ? '[Y/n]' : '[y/N]';
+  const answer = (await rl.question(`${question} ${hint}: `)).trim().toLowerCase();
+  if (!answer) {
+    return defaultYes;
+  }
+  return answer === 'y' || answer === 'yes';
+}
+
+async function select(
+  rl: readline.Interface,
+  question: string,
+  choices: string[],
+  defaultIndex = 0
+): Promise<string> {
+  printText(question);
+  for (const [index, choice] of choices.entries()) {
+    const marker = index === defaultIndex ? ' (default)' : '';
+    printText(`  ${index + 1}. ${choice}${marker}`);
+  }
+
+  const raw = await rl.question(`Choose [1-${choices.length}] (${defaultIndex + 1}): `);
+  const parsed = Number(raw.trim());
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > choices.length) {
+    return choices[defaultIndex];
+  }
+  return choices[parsed - 1];
+}
+
+function mergeScheduleDefaults(
+  current: ScheduleConfig,
+  defaults: Partial<ScheduleConfig> | undefined
+): ScheduleConfig {
+  if (!defaults) {
+    return current;
+  }
+
+  return {
+    ...current,
+    timezone:
+      current.timezone !== DEFAULT_SCHEDULE_CONFIG.timezone
+        ? current.timezone
+        : (defaults.timezone ?? current.timezone),
+    channel: current.channel ?? defaults.channel,
+    target: current.target ?? defaults.target,
+    morningEnabled: current.morningEnabled || defaults.morningEnabled || false,
+    morningTime:
+      current.morningTime !== DEFAULT_SCHEDULE_CONFIG.morningTime
+        ? current.morningTime
+        : (defaults.morningTime ?? current.morningTime),
+    eveningEnabled: current.eveningEnabled || defaults.eveningEnabled || false,
+    eveningTime:
+      current.eveningTime !== DEFAULT_SCHEDULE_CONFIG.eveningTime
+        ? current.eveningTime
+        : (defaults.eveningTime ?? current.eveningTime),
+  };
+}
+
+async function promptTimeValue(
+  rl: readline.Interface,
+  label: string,
+  defaultValue: string
+): Promise<string> {
+  let value = defaultValue;
+  do {
+    value = await ask(rl, label, defaultValue);
+    if (isValidTimeOfDay(value)) {
+      return value;
+    }
+    printText('Use HH:MM in 24-hour time, for example 08:00.');
+  } while (!isValidTimeOfDay(value));
+  return value;
+}
+
+async function promptTimezoneValue(rl: readline.Interface, defaultValue: string): Promise<string> {
+  let value = defaultValue;
+  do {
+    value = await ask(rl, 'Timezone', defaultValue);
+    if (isValidTimezone(value)) {
+      return value;
+    }
+    printText('Use an IANA timezone such as Europe/Bratislava or America/New_York.');
+  } while (!isValidTimezone(value));
+  return value;
+}
+
+async function promptIntervalMinutes(
+  rl: readline.Interface,
+  defaultValue: number
+): Promise<number> {
+  let value = defaultValue;
+  do {
+    value = Number(await ask(rl, 'Optimized watcher interval minutes', String(defaultValue)));
+    if (Number.isInteger(value) && value > 0) {
+      return value;
+    }
+    printText('Interval must be a positive whole number of minutes.');
+  } while (!Number.isInteger(value) || value <= 0);
+  return value;
+}
+
+async function promptOptimizedWatcherDeliveryMode(
+  rl: readline.Interface,
+  defaultValue: OptimizedWatcherDeliveryMode
+): Promise<OptimizedWatcherDeliveryMode> {
+  const choice = await select(
+    rl,
+    'Optimized watcher delivery mode:',
+    ['Alert only on unusual days', "Send every day once today's Oura data is ready"],
+    defaultValue === 'daily-when-ready' ? 1 : 0
+  );
+
+  return choice === "Send every day once today's Oura data is ready"
+    ? 'daily-when-ready'
+    : 'unusual-only';
+}
+
+async function promptChannelTarget(
+  rl: readline.Interface,
+  configuredTargets: ChannelTarget[],
+  defaults: Pick<ScheduleConfig, 'channel' | 'target'>
+): Promise<{ channel: string; target: string }> {
+  const existingLabel =
+    defaults.channel && defaults.target ? `${defaults.channel} -> ${defaults.target}` : undefined;
+  const defaultIndex = configuredTargets.findIndex(
+    (entry) => entry.channel === defaults.channel && entry.target === defaults.target
+  );
+
+  if (configuredTargets.length > 0) {
+    const choice = await select(
+      rl,
+      'Choose the delivery destination for scheduled messages:',
+      [...configuredTargets.map((entry) => entry.label), 'Manual entry'],
+      defaultIndex >= 0 ? defaultIndex : configuredTargets.length
+    );
+    if (choice !== 'Manual entry') {
+      const selected = configuredTargets.find((entry) => entry.label === choice);
+      if (selected) {
+        return {
+          channel: selected.channel,
+          target: selected.target,
+        };
+      }
+    }
+  } else {
+    printText('No configured OpenClaw chat targets were discovered, so manual entry time it is.');
+  }
+
+  const channel = await ask(rl, 'Delivery channel', defaults.channel);
+  const target = await ask(rl, 'Delivery target', defaults.target);
+  if (!channel || !target) {
+    throw new Error(
+      `Scheduled delivery requires both channel and target${existingLabel ? `; current default is ${existingLabel}` : ''}.`
+    );
+  }
+  return { channel, target };
+}
+
+interface ScheduleSetupResult {
+  configured: boolean;
+  openclawAvailable: boolean;
+  schedule: ScheduleConfig;
+  legacyDetected: boolean;
+  removedLegacyJobIds: string[];
+}
+
+async function runScheduleSetupFlow(
+  rl: readline.Interface,
+  emitJson = true
+): Promise<ScheduleSetupResult> {
+  const existing = readState();
+  const openclawAvailable = isOpenClawAvailable();
+  if (!openclawAvailable) {
+    throw new Error('openclaw is not installed or not available on PATH.');
+  }
+
+  const currentSchedule = mergeScheduleDefaults(
+    existing.schedule,
+    getLegacyScheduleDefaults(inspectLegacySchedule().legacyConfig)
+  );
+  const configuredTargets = getConfiguredChannelTargets();
+  const legacy = inspectLegacySchedule();
+  const legacyDetected = Boolean(legacy.legacyConfig) || legacy.legacyJobs.length > 0;
+  const timezoneDefault =
+    currentSchedule.timezone !== DEFAULT_SCHEDULE_CONFIG.timezone
+      ? currentSchedule.timezone
+      : (legacy.legacyDefaults?.timezone ?? getSuggestedTimezone());
+
+  if (legacyDetected) {
+    printText(
+      `Detected legacy OuraClaw plugin scheduling config${legacy.legacyJobs.length > 0 ? ` and ${legacy.legacyJobs.length} old cron job(s)` : ''}.`
+    );
+    printText(
+      'This walkthrough can remove the old plugin jobs and replace them with CLI-managed schedules.'
+    );
+  }
+
+  const destination = await promptChannelTarget(rl, configuredTargets, currentSchedule);
+  const deliveryLanguage = await ask(
+    rl,
+    'Delivery language',
+    currentSchedule.deliveryLanguage || DEFAULT_SCHEDULE_CONFIG.deliveryLanguage
+  );
+  const timezone = await promptTimezoneValue(rl, timezoneDefault);
+
+  printText(
+    'Pick which schedules to manage. The optimized watcher is the useful one when you want the alert as soon as Oura syncs.'
+  );
+  const morningEnabled = await confirm(
+    rl,
+    'Enable standard morning recap',
+    currentSchedule.morningEnabled
+  );
+  const eveningEnabled = await confirm(rl, 'Enable evening recap', currentSchedule.eveningEnabled);
+  const optimizedWatcherEnabled = await confirm(
+    rl,
+    'Enable optimized morning watcher',
+    currentSchedule.optimizedWatcherEnabled ||
+      (!currentSchedule.morningEnabled && !currentSchedule.eveningEnabled)
+  );
+
+  const morningTime = morningEnabled
+    ? await promptTimeValue(rl, 'Morning recap time', currentSchedule.morningTime)
+    : currentSchedule.morningTime;
+  const eveningTime = eveningEnabled
+    ? await promptTimeValue(rl, 'Evening recap time', currentSchedule.eveningTime)
+    : currentSchedule.eveningTime;
+
+  let optimizedWatcherStart = currentSchedule.optimizedWatcherStart;
+  let optimizedWatcherEnd = currentSchedule.optimizedWatcherEnd;
+  let optimizedWatcherIntervalMinutes = currentSchedule.optimizedWatcherIntervalMinutes;
+  let optimizedWatcherDeliveryMode = currentSchedule.optimizedWatcherDeliveryMode;
+  if (optimizedWatcherEnabled) {
+    printText(
+      'Optimized watcher checks repeatedly inside a morning window until Oura data is ready or nothing unusual shows up.'
+    );
+    printText(
+      'If you still want a morning message every day, this mode can wait for real same-day sync and then send once the data is ready.'
+    );
+    optimizedWatcherDeliveryMode = await promptOptimizedWatcherDeliveryMode(
+      rl,
+      currentSchedule.optimizedWatcherDeliveryMode
+    );
+    optimizedWatcherStart = await promptTimeValue(
+      rl,
+      'Optimized watcher start time',
+      currentSchedule.optimizedWatcherStart
+    );
+    optimizedWatcherEnd = await promptTimeValue(
+      rl,
+      'Optimized watcher end time',
+      currentSchedule.optimizedWatcherEnd
+    );
+    optimizedWatcherIntervalMinutes = await promptIntervalMinutes(
+      rl,
+      currentSchedule.optimizedWatcherIntervalMinutes
+    );
+  }
+
+  const migrateLegacyJobs = legacyDetected
+    ? await confirm(rl, 'Remove old OuraClaw plugin cron jobs during setup', true)
+    : false;
+
+  const nextSchedule = createOrReplaceScheduleJobs({
+    ...currentSchedule,
+    enabled: morningEnabled || eveningEnabled || optimizedWatcherEnabled,
+    channel: destination.channel,
+    target: destination.target,
+    deliveryLanguage,
+    timezone,
+    morningEnabled,
+    morningTime,
+    eveningEnabled,
+    eveningTime,
+    optimizedWatcherEnabled,
+    optimizedWatcherDeliveryMode,
+    optimizedWatcherStart,
+    optimizedWatcherEnd,
+    optimizedWatcherIntervalMinutes,
+  });
+  updateState({ schedule: nextSchedule });
+
+  const removedLegacyJobIds =
+    migrateLegacyJobs && legacyDetected
+      ? removeLegacyOuraClawJobs(legacy.legacyConfig, legacy.legacyJobs).removedIds
+      : [];
+
+  const result = {
+    configured: true,
+    openclawAvailable,
+    schedule: nextSchedule,
+    legacyDetected,
+    removedLegacyJobIds,
+  };
+
+  if (emitJson) {
+    printJson(result);
+  }
+  return result;
 }
 
 export function getNestedValue(target: unknown, keyPath: string): unknown {
@@ -79,6 +422,18 @@ export function setConfigValue(state: OuraCliState, key: string, value: string):
     state.auth.clientId = value;
   } else if (key === 'auth.clientSecret') {
     state.auth.clientSecret = value;
+  } else if (key === 'schedule.deliveryLanguage') {
+    state.schedule.deliveryLanguage = value;
+  } else if (key === 'schedule.timezone') {
+    if (!isValidTimezone(value)) {
+      throw new Error(`Invalid timezone: ${value}`);
+    }
+    state.schedule.timezone = value;
+  } else if (key === 'schedule.optimizedWatcherDeliveryMode') {
+    if (!isOptimizedWatcherDeliveryMode(value)) {
+      throw new Error(`Invalid optimized watcher delivery mode: ${value}`);
+    }
+    state.schedule.optimizedWatcherDeliveryMode = value;
   } else {
     throw new Error(`Unsupported config key: ${key}`);
   }
@@ -217,6 +572,7 @@ function hasMorningOptimizedDeliveredToday(state: OuraCliState, day: string): bo
 }
 
 async function buildMorningOptimizedResult(
+  deliveryMode: OptimizedWatcherDeliveryMode = 'unusual-only',
   applyDeliverySuppression = true
 ): Promise<ReturnType<typeof evaluateMorningOptimized>> {
   const day = getTodayIsoDate();
@@ -246,7 +602,7 @@ async function buildMorningOptimizedResult(
     }
   }
 
-  return evaluateMorningOptimized({
+  const result = evaluateMorningOptimized({
     today: {
       day,
       sleepScore: summaryInputs.dailySleep?.score ?? null,
@@ -258,43 +614,47 @@ async function buildMorningOptimizedResult(
     },
     thresholds: state.thresholds,
     baselineConfig: state.baselineConfig,
+    deliveryMode,
     baseline,
     baselineStatus,
     alreadyDeliveredToday: hasMorningOptimizedDeliveredToday(state, day),
     applyDeliverySuppression,
   });
+
+  if (result.shouldSend && result.deliveryType === 'morning-summary') {
+    const morningSummary = buildMorningSummary({ day, ...summaryInputs });
+    return {
+      ...result,
+      message: morningSummary.message,
+      morningSummary,
+    };
+  }
+
+  return result;
 }
 
 export async function runSetup(): Promise<void> {
   const existing = readState();
-  const rl = readline.createInterface({ input, output });
+  const rl = createPromptInterface();
 
   try {
-    const clientId =
-      (await rl.question(
-        `Oura Client ID${existing.auth.clientId ? ` (${existing.auth.clientId})` : ''}: `
-      )) ||
-      existing.auth.clientId ||
-      '';
-    const clientSecret =
-      (await rl.question(
-        `Oura Client Secret${existing.auth.clientSecret ? ' (press Enter to keep current)' : ''}: `
-      )) ||
-      existing.auth.clientSecret ||
-      '';
+    const clientId = await ask(rl, 'Oura Client ID', existing.auth.clientId);
+    const clientSecret = await ask(rl, 'Oura Client Secret', existing.auth.clientSecret);
 
     const defaults = existing.thresholds ?? defaultThresholds();
     const sleepScoreMin = Number(
-      (await rl.question(`Minimum sleep score (${defaults.sleepScoreMin}): `)) ||
+      (await ask(rl, 'Minimum sleep score', String(defaults.sleepScoreMin))) ||
         defaults.sleepScoreMin
     );
     const readinessScoreMin = Number(
-      (await rl.question(`Minimum readiness score (${defaults.readinessScoreMin}): `)) ||
+      (await ask(rl, 'Minimum readiness score', String(defaults.readinessScoreMin))) ||
         defaults.readinessScoreMin
     );
     const temperatureDeviationMax = Number(
-      (await rl.question(
-        `Maximum absolute temperature deviation (${defaults.temperatureDeviationMax}): `
+      (await ask(
+        rl,
+        'Maximum absolute temperature deviation',
+        String(defaults.temperatureDeviationMax)
       )) || defaults.temperatureDeviationMax
     );
 
@@ -309,14 +669,12 @@ export async function runSetup(): Promise<void> {
       'Baseline sensitivity controls how wide your personal "ordinary" range is. 10 = fewer alerts, 25 = balanced default, 40 = more alerts.'
     );
     const lowerPercentile = Number(
-      (await rl.question(
-        `Baseline lower percentile (${baselineDefaults.lowerPercentile}; 10=fewer alerts, 25=balanced, 40=more alerts): `
-      )) || baselineDefaults.lowerPercentile
+      (await ask(rl, 'Baseline lower percentile', String(baselineDefaults.lowerPercentile))) ||
+        baselineDefaults.lowerPercentile
     );
     const breachMetricCount = Number(
-      (await rl.question(
-        `Baseline breach metric count (${baselineDefaults.breachMetricCount}; 1=more sensitive, 2+=less sensitive): `
-      )) || baselineDefaults.breachMetricCount
+      (await ask(rl, 'Baseline breach metric count', String(baselineDefaults.breachMetricCount))) ||
+        baselineDefaults.breachMetricCount
     );
 
     const baselineConfig = validateBaselineConfig({
@@ -352,11 +710,30 @@ export async function runSetup(): Promise<void> {
     freshState.thresholds = thresholds;
     freshState.baselineConfig = baselineConfig;
     writeState(freshState);
+
+    let scheduleResult: ScheduleSetupResult | undefined;
+    if (isOpenClawAvailable()) {
+      const shouldConfigureSchedule = await confirm(
+        rl,
+        'OpenClaw detected. Configure scheduled jobs now',
+        true
+      );
+      if (shouldConfigureSchedule) {
+        scheduleResult = await runScheduleSetupFlow(rl, false);
+      }
+    }
+
     printJson({
       ok: true,
       configured: true,
       thresholdSource: 'state',
       tokenExpiresAt: freshState.auth.tokenExpiresAt ?? null,
+      schedule:
+        scheduleResult ??
+        ({
+          configured: false,
+          openclawAvailable: isOpenClawAvailable(),
+        } satisfies Partial<ScheduleSetupResult>),
     });
   } finally {
     rl.close();
@@ -430,11 +807,16 @@ export async function runEveningSummary(textMode: boolean): Promise<void> {
   });
 }
 
-export async function runMorningOptimized(): Promise<void> {
-  printJson(await buildMorningOptimizedResult());
+export async function runMorningOptimized(
+  deliveryMode: OptimizedWatcherDeliveryMode = 'unusual-only'
+): Promise<void> {
+  printJson(await buildMorningOptimizedResult(deliveryMode));
 }
 
-export async function confirmMorningOptimizedDelivery(deliveryKey: string): Promise<void> {
+export async function confirmMorningOptimizedDelivery(
+  deliveryKey: string,
+  deliveryMode: OptimizedWatcherDeliveryMode = 'unusual-only'
+): Promise<void> {
   const day = getTodayIsoDate();
   const state = readState();
   const existing = state.deliveries?.morningOptimized;
@@ -454,7 +836,7 @@ export async function confirmMorningOptimizedDelivery(deliveryKey: string): Prom
     throw new Error('A different morning-optimized alert is already confirmed for today.');
   }
 
-  const result = await buildMorningOptimizedResult(false);
+  const result = await buildMorningOptimizedResult(deliveryMode, false);
   if (
     !result.dataReady ||
     !result.shouldSend ||
@@ -482,6 +864,95 @@ export async function confirmMorningOptimizedDelivery(deliveryKey: string): Prom
   });
 }
 
+export async function runScheduleSetup(): Promise<void> {
+  const rl = createPromptInterface();
+  try {
+    await runScheduleSetupFlow(rl);
+  } finally {
+    rl.close();
+  }
+}
+
+export function runScheduleStatus(): void {
+  const state = readState();
+  const status = getScheduleStatus(state.schedule);
+  printJson({
+    ok: true,
+    openclawAvailable: status.openclawAvailable,
+    configured: status.configured,
+    managedJobs: {
+      morning: {
+        enabled: status.configured.morningEnabled,
+        storedId: status.configured.morningCronJobId ?? null,
+        exists: status.existingManagedJobs.some(
+          (job) => job.id === status.configured.morningCronJobId
+        ),
+      },
+      evening: {
+        enabled: status.configured.eveningEnabled,
+        storedId: status.configured.eveningCronJobId ?? null,
+        exists: status.existingManagedJobs.some(
+          (job) => job.id === status.configured.eveningCronJobId
+        ),
+      },
+      optimizedWatcher: {
+        enabled: status.configured.optimizedWatcherEnabled,
+        deliveryMode: status.configured.optimizedWatcherDeliveryMode,
+        storedIds: status.configured.optimizedWatcherCronJobIds ?? [],
+        existingIds: status.existingManagedJobs
+          .filter((job) => (status.configured.optimizedWatcherCronJobIds ?? []).includes(job.id))
+          .map((job) => job.id),
+      },
+    },
+    legacyJobs: status.existingLegacyJobs.map((job) => ({
+      id: job.id,
+      name: job.name,
+    })),
+  });
+}
+
+export function runScheduleDisable(): void {
+  const state = readState();
+  const removal = removeManagedScheduleJobs(state.schedule);
+  const nextSchedule: ScheduleConfig = {
+    ...state.schedule,
+    enabled: false,
+    morningEnabled: false,
+    eveningEnabled: false,
+    optimizedWatcherEnabled: false,
+    optimizedWatcherDeliveryMode: state.schedule.optimizedWatcherDeliveryMode,
+    morningCronJobId: undefined,
+    eveningCronJobId: undefined,
+    optimizedWatcherCronJobIds: [],
+  };
+  updateState({ schedule: nextSchedule });
+  printJson({
+    ok: true,
+    disabled: true,
+    removedJobIds: removal.removedIds,
+    schedule: nextSchedule,
+  });
+}
+
+export function runScheduleMigrateFromOuraClawPlugin(): void {
+  const state = readState();
+  const jobs = listOpenClawCronJobs();
+  const legacy = inspectLegacySchedule(jobs);
+  const removal = removeLegacyOuraClawJobs(legacy.legacyConfig, jobs);
+  const mergedSchedule = mergeScheduleDefaults(state.schedule, legacy.legacyDefaults);
+  updateState({ schedule: mergedSchedule });
+  printJson({
+    ok: true,
+    migrated: true,
+    legacyConfigFound: Boolean(legacy.legacyConfig),
+    legacyConfigPath: legacy.legacyConfigPath,
+    foundLegacyJobIds: removal.foundIds,
+    removedLegacyJobIds: removal.removedIds,
+    importedDefaults: legacy.legacyDefaults ?? null,
+    schedule: mergedSchedule,
+  });
+}
+
 export function createProgram(): Command {
   const program = new Command();
   program
@@ -494,6 +965,24 @@ export function createProgram(): Command {
     .command('setup')
     .description('Authenticate with Oura and capture threshold defaults')
     .action(runSetup);
+
+  const schedule = program.command('schedule').description('Manage OpenClaw cron schedules');
+  schedule
+    .command('setup')
+    .description('Configure scheduled summaries and alerts')
+    .action(runScheduleSetup);
+  schedule
+    .command('status')
+    .description('Show schedule config and OpenClaw cron status')
+    .action(runScheduleStatus);
+  schedule
+    .command('disable')
+    .description('Remove CLI-managed scheduled jobs')
+    .action(runScheduleDisable);
+  schedule
+    .command('migrate-from-ouraclaw-plugin')
+    .description('Remove legacy OuraClaw plugin cron jobs and import useful defaults')
+    .action(runScheduleMigrateFromOuraClawPlugin);
 
   const auth = program.command('auth').description('Inspect and refresh auth state');
   auth.command('status').action(() => {
@@ -561,12 +1050,32 @@ export function createProgram(): Command {
     .action(async (options: { text?: boolean }) => {
       await runMorningSummary(Boolean(options.text));
     });
-  summary.command('morning-optimized').action(runMorningOptimized);
+  summary
+    .command('morning-optimized')
+    .option(
+      '--delivery-mode <deliveryMode>',
+      'Delivery mode: unusual-only or daily-when-ready',
+      'unusual-only'
+    )
+    .action(async (options: { deliveryMode: string }) => {
+      if (!isOptimizedWatcherDeliveryMode(options.deliveryMode)) {
+        throw new Error(`Invalid optimized watcher delivery mode: ${options.deliveryMode}`);
+      }
+      await runMorningOptimized(options.deliveryMode);
+    });
   summary
     .command('morning-optimized-confirm')
     .requiredOption('--delivery-key <deliveryKey>', 'Confirm a delivered morning-optimized alert')
-    .action(async (options: { deliveryKey: string }) => {
-      await confirmMorningOptimizedDelivery(options.deliveryKey);
+    .option(
+      '--delivery-mode <deliveryMode>',
+      'Delivery mode used for the original morning-optimized result',
+      'unusual-only'
+    )
+    .action(async (options: { deliveryKey: string; deliveryMode: string }) => {
+      if (!isOptimizedWatcherDeliveryMode(options.deliveryMode)) {
+        throw new Error(`Invalid optimized watcher delivery mode: ${options.deliveryMode}`);
+      }
+      await confirmMorningOptimizedDelivery(options.deliveryKey, options.deliveryMode);
     });
   summary
     .command('evening')

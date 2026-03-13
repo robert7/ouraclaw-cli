@@ -12,6 +12,11 @@ const isBaselineStale = vi.fn();
 const evaluateMorningOptimized = vi.fn();
 const buildMorningSummary = vi.fn();
 const buildEveningSummary = vi.fn();
+const getScheduleStatus = vi.fn();
+const removeManagedScheduleJobs = vi.fn();
+const listOpenClawCronJobs = vi.fn();
+const inspectLegacySchedule = vi.fn();
+const removeLegacyOuraClawJobs = vi.fn();
 
 vi.mock('../src/output', () => ({
   printJson,
@@ -50,6 +55,20 @@ vi.mock('../src/baseline', () => ({
 
 vi.mock('../src/morning-optimized', () => ({
   evaluateMorningOptimized,
+}));
+
+vi.mock('../src/schedule', () => ({
+  createOrReplaceScheduleJobs: vi.fn(),
+  getConfiguredChannelTargets: vi.fn(() => []),
+  getLegacyScheduleDefaults: vi.fn(() => undefined),
+  getScheduleStatus,
+  inspectLegacySchedule,
+  isOpenClawAvailable: vi.fn(() => false),
+  isValidTimeOfDay: vi.fn(() => true),
+  isValidTimezone: vi.fn(() => true),
+  listOpenClawCronJobs,
+  removeLegacyOuraClawJobs,
+  removeManagedScheduleJobs,
 }));
 
 vi.mock('../src/summaries', () => ({
@@ -235,6 +254,213 @@ describe('cli actions', () => {
       confirmed: true,
       day: expect.stringMatching(/\d{4}-\d{2}-\d{2}/),
       deliveryKey: 'abc123',
+    });
+  });
+
+  test('prints schedule status with managed and legacy job information', async () => {
+    const schedule = {
+      enabled: true,
+      timezone: 'Europe/Bratislava',
+      deliveryLanguage: 'Slovak',
+      channel: 'signal',
+      target: '+421',
+      morningEnabled: true,
+      morningTime: '07:30',
+      eveningEnabled: false,
+      eveningTime: '21:00',
+      optimizedWatcherEnabled: true,
+      optimizedWatcherDeliveryMode: 'daily-when-ready',
+      optimizedWatcherStart: '08:00',
+      optimizedWatcherEnd: '13:00',
+      optimizedWatcherIntervalMinutes: 60,
+      morningCronJobId: 'job-morning',
+      optimizedWatcherCronJobIds: ['job-optimized'],
+    };
+    readState.mockReturnValue({
+      schemaVersion: 1,
+      auth: {},
+      thresholds: { sleepScoreMin: 75, readinessScoreMin: 75, temperatureDeviationMax: 0.1 },
+      baselineConfig: { lowerPercentile: 25, breachMetricCount: 1 },
+      schedule,
+      deliveries: {},
+    });
+    getScheduleStatus.mockReturnValue({
+      openclawAvailable: true,
+      configured: schedule,
+      existingManagedJobs: [
+        { id: 'job-morning', name: 'ouraclaw-cli Morning Summary' },
+        { id: 'job-optimized', name: 'ouraclaw-cli Morning Optimized' },
+      ],
+      existingLegacyJobs: [{ id: 'legacy-1', name: 'OuraClaw Morning Summary' }],
+    });
+
+    const { runScheduleStatus } = await import('../src/cli');
+    runScheduleStatus();
+
+    expect(printJson).toHaveBeenCalledWith({
+      ok: true,
+      openclawAvailable: true,
+      configured: expect.objectContaining({
+        deliveryLanguage: 'Slovak',
+        channel: 'signal',
+      }),
+      managedJobs: {
+        morning: {
+          enabled: true,
+          storedId: 'job-morning',
+          exists: true,
+        },
+        evening: {
+          enabled: false,
+          storedId: null,
+          exists: false,
+        },
+        optimizedWatcher: {
+          enabled: true,
+          deliveryMode: 'daily-when-ready',
+          storedIds: ['job-optimized'],
+          existingIds: ['job-optimized'],
+        },
+      },
+      legacyJobs: [{ id: 'legacy-1', name: 'OuraClaw Morning Summary' }],
+    });
+  });
+
+  test('disables managed schedule jobs without clearing other state', async () => {
+    readState.mockReturnValue({
+      schemaVersion: 1,
+      auth: {},
+      thresholds: { sleepScoreMin: 75, readinessScoreMin: 75, temperatureDeviationMax: 0.1 },
+      baselineConfig: { lowerPercentile: 25, breachMetricCount: 1 },
+      schedule: {
+        enabled: true,
+        timezone: 'Europe/Bratislava',
+        deliveryLanguage: 'English',
+        channel: 'signal',
+        target: '+421',
+        morningEnabled: true,
+        morningTime: '07:30',
+        eveningEnabled: true,
+        eveningTime: '21:00',
+        optimizedWatcherEnabled: true,
+        optimizedWatcherDeliveryMode: 'unusual-only',
+        optimizedWatcherStart: '08:00',
+        optimizedWatcherEnd: '13:00',
+        optimizedWatcherIntervalMinutes: 60,
+        morningCronJobId: 'morning-id',
+        eveningCronJobId: 'evening-id',
+        optimizedWatcherCronJobIds: ['opt-1', 'opt-2'],
+      },
+      deliveries: {},
+    });
+    removeManagedScheduleJobs.mockReturnValue({
+      removedIds: ['morning-id', 'evening-id', 'opt-1', 'opt-2'],
+    });
+
+    const { runScheduleDisable } = await import('../src/cli');
+    runScheduleDisable();
+
+    expect(removeManagedScheduleJobs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        morningCronJobId: 'morning-id',
+        eveningCronJobId: 'evening-id',
+        optimizedWatcherCronJobIds: ['opt-1', 'opt-2'],
+      })
+    );
+    expect(updateState).toHaveBeenCalledWith({
+      schedule: expect.objectContaining({
+        enabled: false,
+        morningEnabled: false,
+        eveningEnabled: false,
+        optimizedWatcherEnabled: false,
+        optimizedWatcherDeliveryMode: 'unusual-only',
+        morningCronJobId: undefined,
+        eveningCronJobId: undefined,
+        optimizedWatcherCronJobIds: [],
+        channel: 'signal',
+      }),
+    });
+  });
+
+  test('migrates legacy plugin cron jobs and imports defaults', async () => {
+    readState.mockReturnValue({
+      schemaVersion: 1,
+      auth: {},
+      thresholds: { sleepScoreMin: 75, readinessScoreMin: 75, temperatureDeviationMax: 0.1 },
+      baselineConfig: { lowerPercentile: 25, breachMetricCount: 1 },
+      schedule: {
+        enabled: false,
+        timezone: 'UTC',
+        deliveryLanguage: 'English',
+        morningEnabled: false,
+        morningTime: '07:00',
+        eveningEnabled: false,
+        eveningTime: '21:00',
+        optimizedWatcherEnabled: false,
+        optimizedWatcherDeliveryMode: 'unusual-only',
+        optimizedWatcherStart: '08:00',
+        optimizedWatcherEnd: '13:00',
+        optimizedWatcherIntervalMinutes: 60,
+      },
+      deliveries: {},
+    });
+    listOpenClawCronJobs.mockReturnValue([{ id: 'legacy-1', name: 'OuraClaw Morning Summary' }]);
+    inspectLegacySchedule.mockReturnValue({
+      legacyConfigPath: '/tmp/legacy.json',
+      legacyConfig: {
+        preferredChannel: 'signal',
+        preferredChannelTarget: '+421',
+      },
+      legacyDefaults: {
+        channel: 'signal',
+        target: '+421',
+        timezone: 'Europe/Bratislava',
+        morningEnabled: true,
+        morningTime: '07:30',
+      },
+      legacyJobs: [{ id: 'legacy-1', name: 'OuraClaw Morning Summary' }],
+    });
+    removeLegacyOuraClawJobs.mockReturnValue({
+      foundIds: ['legacy-1'],
+      removedIds: ['legacy-1'],
+    });
+
+    const { runScheduleMigrateFromOuraClawPlugin } = await import('../src/cli');
+    runScheduleMigrateFromOuraClawPlugin();
+
+    expect(removeLegacyOuraClawJobs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preferredChannel: 'signal',
+      }),
+      [{ id: 'legacy-1', name: 'OuraClaw Morning Summary' }]
+    );
+    expect(updateState).toHaveBeenCalledWith({
+      schedule: expect.objectContaining({
+        channel: 'signal',
+        target: '+421',
+        timezone: 'Europe/Bratislava',
+        morningEnabled: true,
+        morningTime: '07:30',
+      }),
+    });
+    expect(printJson).toHaveBeenCalledWith({
+      ok: true,
+      migrated: true,
+      legacyConfigFound: true,
+      legacyConfigPath: '/tmp/legacy.json',
+      foundLegacyJobIds: ['legacy-1'],
+      removedLegacyJobIds: ['legacy-1'],
+      importedDefaults: {
+        channel: 'signal',
+        target: '+421',
+        timezone: 'Europe/Bratislava',
+        morningEnabled: true,
+        morningTime: '07:30',
+      },
+      schedule: expect.objectContaining({
+        channel: 'signal',
+        target: '+421',
+      }),
     });
   });
 });

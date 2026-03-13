@@ -92,6 +92,14 @@ export interface LegacyOuraConfig {
   accessToken?: string;
   refreshToken?: string;
   tokenExpiresAt?: number;
+  preferredChannel?: string;
+  preferredChannelTarget?: string;
+  morningTime?: string;
+  eveningTime?: string;
+  timezone?: string;
+  scheduledMessages?: boolean;
+  morningCronJobId?: string;
+  eveningCronJobId?: string;
 }
 
 export interface OuraAuthState {
@@ -113,11 +121,33 @@ export interface BaselineConfig {
   breachMetricCount: number;
 }
 
+export type OptimizedWatcherDeliveryMode = 'unusual-only' | 'daily-when-ready';
+
 export interface BaselineMetricSnapshot {
   median: number;
   low: number;
   high: number;
   sampleSize: number;
+}
+
+export interface ScheduleConfig {
+  enabled: boolean;
+  timezone: string;
+  deliveryLanguage: string;
+  channel?: string;
+  target?: string;
+  morningEnabled: boolean;
+  morningTime: string;
+  eveningEnabled: boolean;
+  eveningTime: string;
+  optimizedWatcherEnabled: boolean;
+  optimizedWatcherDeliveryMode: OptimizedWatcherDeliveryMode;
+  optimizedWatcherStart: string;
+  optimizedWatcherEnd: string;
+  optimizedWatcherIntervalMinutes: number;
+  morningCronJobId?: string;
+  eveningCronJobId?: string;
+  optimizedWatcherCronJobIds?: string[];
 }
 
 export interface BaselineSnapshot {
@@ -134,6 +164,7 @@ export interface OuraCliState {
   auth: OuraAuthState;
   thresholds: FixedThresholdConfig;
   baselineConfig: BaselineConfig;
+  schedule: ScheduleConfig;
   baseline?: BaselineSnapshot;
   deliveries?: {
     morningOptimized?: {
@@ -194,6 +225,7 @@ export interface MorningOptimizedInput {
   today: MorningOptimizedToday;
   thresholds: FixedThresholdConfig;
   baselineConfig: BaselineConfig;
+  deliveryMode?: OptimizedWatcherDeliveryMode;
   baseline?: BaselineSnapshot;
   baselineStatus?: 'ready' | 'missing' | 'stale' | 'refresh_failed';
   alreadyDeliveredToday?: boolean;
@@ -204,6 +236,8 @@ export interface MorningOptimizedResult {
   dataReady: boolean;
   ordinary: boolean;
   shouldSend: boolean;
+  deliveryMode: OptimizedWatcherDeliveryMode;
+  deliveryType?: 'optimized-alert' | 'morning-summary';
   baselineStatus?: 'ready' | 'missing' | 'stale' | 'refresh_failed';
   message?: string;
   deliveryKey?: string;
@@ -211,6 +245,7 @@ export interface MorningOptimizedResult {
   breachedMetrics?: BaselineMetricKey[];
   today: MorningOptimizedToday;
   baseline?: BaselineSnapshot;
+  morningSummary?: SummaryResult;
   reasons: string[];
 }
 

@@ -9,7 +9,15 @@ describe('cli', () => {
       .commands.map((command) => command.name())
       .sort();
 
-    expect(commandNames).toEqual(['auth', 'baseline', 'config', 'fetch', 'setup', 'summary']);
+    expect(commandNames).toEqual([
+      'auth',
+      'baseline',
+      'config',
+      'fetch',
+      'schedule',
+      'setup',
+      'summary',
+    ]);
   });
 
   test('registers the global version option with short and long flags', () => {
@@ -23,6 +31,20 @@ describe('cli', () => {
     const summarySubcommands = summaryCommand?.commands.map((command) => command.name()).sort();
 
     expect(summarySubcommands).toContain('morning-optimized-confirm');
+  });
+
+  test('registers the schedule management commands', () => {
+    const scheduleCommand = createProgram().commands.find(
+      (command) => command.name() === 'schedule'
+    );
+    const scheduleSubcommands = scheduleCommand?.commands.map((command) => command.name()).sort();
+
+    expect(scheduleSubcommands).toEqual([
+      'disable',
+      'migrate-from-ouraclaw-plugin',
+      'setup',
+      'status',
+    ]);
   });
 
   test('prints the package version for --version', async () => {

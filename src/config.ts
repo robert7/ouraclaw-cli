@@ -25,6 +25,21 @@ export const DEFAULT_BASELINE_CONFIG = {
   breachMetricCount: 1,
 } as const;
 
+export const DEFAULT_SCHEDULE_CONFIG = {
+  enabled: false,
+  timezone: 'UTC',
+  deliveryLanguage: 'English',
+  morningEnabled: false,
+  morningTime: '07:00',
+  eveningEnabled: false,
+  eveningTime: '21:00',
+  optimizedWatcherEnabled: false,
+  optimizedWatcherDeliveryMode: 'unusual-only',
+  optimizedWatcherStart: '08:00',
+  optimizedWatcherEnd: '13:00',
+  optimizedWatcherIntervalMinutes: 60,
+} as const;
+
 export const BASELINE_METRICS = [
   'sleepScore',
   'readinessScore',

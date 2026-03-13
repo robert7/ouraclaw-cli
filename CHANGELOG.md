@@ -13,12 +13,18 @@ All notable changes to this project will be documented in this file.
   successful same-day delivery.
 - Added detailed documentation for the optimized morning routine, including baseline bands, breach counting, and the
   OpenClaw delivery-confirmation flow.
+- Added first-class `schedule` commands for OpenClaw cron setup, status, disable, and legacy plugin cron migration.
+- Added delivery-language-aware OpenClaw scheduling, including a repeated optimized morning watcher and a dedicated
+  scheduling guide.
+- Added an optimized watcher delivery mode that can either alert only on unusual days or send every day once today's
+  Oura data is actually ready.
 
 ### Changed
 
 - Expanded `summary morning-optimized` baseline evaluation to all six morning decision metrics and made baseline
   sensitivity configurable through percentile bands and breach-count settings.
 - Updated the main README to highlight the optimized morning flow and link directly to the detailed guide.
+- Updated `setup` so it can hand off into the same scheduling walkthrough when OpenClaw is available.
 
 ## [0.2.0] - 2026-03-13
 

@@ -226,20 +226,27 @@ Nice active day. Wind down soon and set tomorrow up properly.
 
 ## Morning Optimized Template
 
-When deciding whether a morning alert should be sent, run:
+When deciding whether an optimized morning delivery should be sent, run:
 
 `ouraclaw-cli summary morning-optimized`
+
+For a watcher configured to send every day once today's data is ready, run:
+
+`ouraclaw-cli summary morning-optimized --delivery-mode daily-when-ready`
 
 Interpret the JSON result as the source of truth:
 
 - If `dataReady` is `false`, do not send a message.
-- If `ordinary` is `true`, do not send a message.
 - If `shouldSend` is `false`, do not send a message.
-- If `shouldSend` is `true`, compose the final channel message from this template in the delivery language using
-  `today`, `baseline`, `baselineStatus`, `breachedMetrics`, and `reasons`.
+- If `shouldSend` is `true` and `deliveryType` is `"optimized-alert"`, compose the final channel message from this
+  template in the delivery language using `today`, `baseline`, `baselineStatus`, `breachedMetrics`, and `reasons`.
+- If `shouldSend` is `true` and `deliveryType` is `"morning-summary"`, follow the Morning Summary Template instead,
+  using the nested `morningSummary` payload as the source of truth.
 - If `baselineStatus` is `"refresh_failed"`, trust the CLI decision anyway; it already fell back to fixed thresholds.
 - After the agent successfully delivers the alert, it must confirm delivery by running
   `ouraclaw-cli summary morning-optimized-confirm --delivery-key <deliveryKey>`.
+- If the original command used `--delivery-mode daily-when-ready`, the confirmation command must use the same
+  `--delivery-mode daily-when-ready`.
 - Never confirm delivery if the send failed or was skipped.
 
 Send only the formatted alert, with no extra preamble or commentary.

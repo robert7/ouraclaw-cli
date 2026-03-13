@@ -1,7 +1,12 @@
 import { BASELINE_METRICS } from './config';
 import { createHash } from 'node:crypto';
 import { evaluateFixedThresholds } from './thresholds';
-import { BaselineMetricKey, MorningOptimizedInput, MorningOptimizedResult } from './types';
+import {
+  BaselineMetricKey,
+  MorningOptimizedInput,
+  MorningOptimizedResult,
+  OptimizedWatcherDeliveryMode,
+} from './types';
 import { formatDuration } from './date-utils';
 
 const baselineReasonMap: Record<BaselineMetricKey, string> = {
@@ -31,6 +36,8 @@ function buildAlertMessage(result: MorningOptimizedResult): string {
 function buildDeliveryKey(result: MorningOptimizedResult): string {
   const payload = JSON.stringify({
     day: result.today.day,
+    deliveryMode: result.deliveryMode,
+    deliveryType: result.deliveryType ?? 'none',
     breachedMetrics: [...(result.breachedMetrics ?? [])].sort(),
     reasons: [...result.reasons].sort(),
     baselineStatus: result.baselineStatus ?? 'none',
@@ -40,6 +47,7 @@ function buildDeliveryKey(result: MorningOptimizedResult): string {
 }
 
 export function evaluateMorningOptimized(input: MorningOptimizedInput): MorningOptimizedResult {
+  const deliveryMode: OptimizedWatcherDeliveryMode = input.deliveryMode ?? 'unusual-only';
   const missingReasons: string[] = [];
   if (input.today.sleepScore == null) {
     missingReasons.push('missing_sleep_score');
@@ -56,6 +64,7 @@ export function evaluateMorningOptimized(input: MorningOptimizedInput): MorningO
       dataReady: false,
       ordinary: false,
       shouldSend: false,
+      deliveryMode,
       baselineStatus: input.baselineStatus,
       today: input.today,
       baseline: input.baseline,
@@ -112,13 +121,16 @@ export function evaluateMorningOptimized(input: MorningOptimizedInput): MorningO
   }
 
   const baselineTriggered = breachedMetrics.size >= input.baselineConfig.breachMetricCount;
-  const shouldSendCandidate = fixedThreshold.reasons.length > 0 || baselineTriggered;
+  const unusual = fixedThreshold.reasons.length > 0 || baselineTriggered;
+  const shouldSendCandidate = unusual || deliveryMode === 'daily-when-ready';
   const reasons = [...fixedThreshold.reasons, ...(baselineTriggered ? baselineReasons : [])];
 
   const result: MorningOptimizedResult = {
     dataReady: true,
-    ordinary: !shouldSendCandidate,
+    ordinary: !unusual,
     shouldSend: shouldSendCandidate,
+    deliveryMode,
+    deliveryType: unusual ? 'optimized-alert' : shouldSendCandidate ? 'morning-summary' : undefined,
     baselineStatus: input.baselineStatus,
     today: input.today,
     baseline: input.baseline,
@@ -126,9 +138,11 @@ export function evaluateMorningOptimized(input: MorningOptimizedInput): MorningO
     reasons,
   };
 
-  if (shouldSendCandidate) {
+  if (result.deliveryType === 'optimized-alert') {
     result.deliveryKey = buildDeliveryKey(result);
     result.message = buildAlertMessage(result);
+  } else if (result.deliveryType === 'morning-summary') {
+    result.deliveryKey = buildDeliveryKey(result);
   }
 
   if (

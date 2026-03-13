@@ -75,6 +75,17 @@ returns `dataReady: false` and `shouldSend: false`.
 
 The OpenClaw skill should treat that as "do not send anything yet." The next scheduled run can simply evaluate again.
 
+## Daily Delivery Mode
+
+The optimized watcher is not only for quiet alerting.
+
+If you configure the watcher in `daily-when-ready` mode, it still waits for today's Oura data to be ready before
+sending anything. On unusual days it sends the optimized alert. On ordinary days it can still send a normal morning
+recap, but only after real same-day data is available.
+
+That makes it a better fit than a fixed-time morning cron job when the user wants a daily recap without the risk of
+firing before Oura has synced yet.
+
 ## Delivery Handshake
 
 If `summary morning-optimized` returns `shouldSend: true`, it also returns a `deliveryKey`.
@@ -86,6 +97,10 @@ The intended sequence is:
 3. Only after successful delivery, agent runs:
 
    `ouraclaw-cli summary morning-optimized-confirm --delivery-key <deliveryKey>`
+
+   If the original result used `--delivery-mode daily-when-ready`, confirm with:
+
+   `ouraclaw-cli summary morning-optimized-confirm --delivery-mode daily-when-ready --delivery-key <deliveryKey>`
 
 This confirmation matters because the CLI does not know whether the external send actually succeeded. Once confirmation
 is stored, later same-day runs return `shouldSend: false` with `already_delivered_today` so duplicate alerts are

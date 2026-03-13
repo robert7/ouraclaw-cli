@@ -151,4 +151,27 @@ describe('morning-optimized', () => {
     expect(result.deliveryKey).toBeUndefined();
     expect(result.reasons[0]).toBe('already_delivered_today');
   });
+
+  test('daily-when-ready mode sends a morning summary on ordinary ready days', () => {
+    const result = evaluateMorningOptimized({
+      today: {
+        day: '2026-03-13',
+        sleepScore: 82,
+        readinessScore: 80,
+        temperatureDeviation: 0,
+        averageHrv: 40,
+        lowestHeartRate: 49,
+        totalSleepDuration: 28000,
+      },
+      thresholds: defaultThresholds(),
+      baselineConfig: defaultBaselineConfig(),
+      deliveryMode: 'daily-when-ready',
+    });
+
+    expect(result.dataReady).toBe(true);
+    expect(result.ordinary).toBe(true);
+    expect(result.shouldSend).toBe(true);
+    expect(result.deliveryType).toBe('morning-summary');
+    expect(result.deliveryKey).toBeDefined();
+  });
 });

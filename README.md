@@ -6,8 +6,8 @@
 
 Based on [Ricky Bloomfield's OuraClaw](https://github.com/rickybloomfield/OuraClaw), this fork refactors the original
 OpenClaw plugin into a standalone, JSON-first CLI while keeping the `oura` skill compatible through a CLI-backed
-adaptation. It also adds an optimized morning flow that avoids stale yesterday fallback data and only sends when
-something is genuinely out of the ordinary.
+adaptation. It also adds an **[optimized morning flow](docs/guides/optimized-morning-routine.md)** that avoids stale
+yesterday fallback data and only sends when something is genuinely out of the ordinary.
 
 `ouraclaw-cli` is a standalone CLI for Oura automation. It fetches Oura data, manages OAuth tokens and local thresholds,
 builds summary output, and ships an optional OpenClaw skill that invokes the CLI directly.
@@ -41,7 +41,8 @@ The wizard:
 
 1. Collects your Oura client ID and client secret.
 2. Opens the hardened OAuth flow in a browser.
-3. Stores tokens plus threshold defaults in `$HOME/.ouraclaw-cli/ouraclaw-cli.json`.
+3. Stores tokens plus threshold and baseline defaults in `$HOME/.ouraclaw-cli/ouraclaw-cli.json`.
+4. If OpenClaw is installed, can also walk you through cron-based scheduling.
 
 When creating or updating your Oura application, register the redirect URI exactly as
 `http://localhost:9876/callback`. Oura validates the redirect URI string literally.
@@ -60,12 +61,41 @@ ouraclaw-cli summary evening --text
 
 JSON is the default output mode. Use `--text` on summary commands when you want a ready-to-send recap.
 
+## Scheduling
+
+`ouraclaw-cli` can set up OpenClaw cron jobs for:
+
+- a fixed morning recap
+- a fixed evening recap
+- an optimized morning watcher that re-checks between a start and end time so you get notified as soon as Oura syncs
+
+Even if you want a morning message every day, the optimized watcher can still be the better setup. It can wait until
+today's Oura data is actually synced, then either alert only on unusual days or send every day once the real same-day
+data is ready.
+
+Run:
+
+```bash
+ouraclaw-cli schedule setup
+```
+
+Existing OuraClaw plugin users can also remove old cron jobs and import useful defaults with:
+
+```bash
+ouraclaw-cli schedule migrate-from-ouraclaw-plugin
+```
+
+See [Scheduling guide](docs/guides/scheduling.md) for the full walkthrough and [Migration Guide](docs/guides/migrating-from-openclaw-plugin.md) for old plugin cleanup.
+
 ## Optimized Morning Flow
 
 `summary morning-optimized` is the quiet-by-default alert path: it compares today's Oura data against fixed thresholds
 plus your personal baseline and only recommends sending when something is genuinely out of the ordinary. See
 [Optimized morning routine](docs/guides/optimized-morning-routine.md) for the full decision logic, baseline tuning, and
 delivery-confirmation flow.
+
+The scheduler can also use that same optimized flow for daily delivery. In that mode it still waits for real Oura sync
+instead of firing too early, but it sends a normal morning recap once today's data is ready.
 
 ## OpenClaw Skill
 
@@ -78,6 +108,7 @@ OpenClaw and keeps command invocations short and allowlist-friendly.
 - [Command reference](docs/guides/command-reference.md)
 - [Configuration](docs/guides/configuration.md)
 - [Optimized morning routine](docs/guides/optimized-morning-routine.md)
+- [Scheduling guide](docs/guides/scheduling.md)
 - [Migration Guide](docs/guides/migrating-from-openclaw-plugin.md)
 - [Troubleshooting](docs/guides/troubleshooting.md)
 
