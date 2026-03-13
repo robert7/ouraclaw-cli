@@ -1,5 +1,9 @@
 # ouraclaw-cli
 
+[![CI](https://github.com/robert7/ouraclaw-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/robert7/ouraclaw-cli/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/%40robertvii%2Fouraclaw-cli)](https://www.npmjs.com/package/@robertvii/ouraclaw-cli)
+[![codecov](https://codecov.io/gh/robert7/ouraclaw-cli/branch/main/graph/badge.svg)](https://codecov.io/gh/robert7/ouraclaw-cli)
+
 `ouraclaw-cli` is a standalone CLI for Oura automation. It fetches Oura data, manages OAuth tokens and local thresholds,
 builds summary output, and ships an optional OpenClaw skill that invokes the CLI directly.
 

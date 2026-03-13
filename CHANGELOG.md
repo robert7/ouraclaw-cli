@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Added global `--version` / `-V` support so the CLI can print its package version without running a command.
+- Added a GitHub Actions CI workflow and README badges for CI, npm, and coverage status.
 
 ## [0.2.0] - 2026-03-13
 
