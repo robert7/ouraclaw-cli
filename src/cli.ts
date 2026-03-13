@@ -836,11 +836,7 @@ export async function runSetup(): Promise<void> {
 
     let scheduleResult: ScheduleSetupResult | undefined;
     if (isOpenClawAvailable()) {
-      const shouldConfigureSchedule = await confirm(
-        rl,
-        getScheduleSetupHandoffPrompt(),
-        true
-      );
+      const shouldConfigureSchedule = await confirm(rl, getScheduleSetupHandoffPrompt(), true);
       if (shouldConfigureSchedule) {
         scheduleResult = await runScheduleSetupFlow(rl, false);
       }
