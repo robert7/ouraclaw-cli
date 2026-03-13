@@ -1,20 +1,7 @@
-// Oura API v2 response types
+import { BASELINE_METRICS, OURA_ENDPOINTS } from './config';
 
-export interface OuraConfig {
-  clientId?: string;
-  clientSecret?: string;
-  accessToken?: string;
-  refreshToken?: string;
-  tokenExpiresAt?: number;
-  preferredChannel?: string;
-  preferredChannelTarget?: string;
-  morningTime?: string;
-  eveningTime?: string;
-  timezone?: string;
-  scheduledMessages?: boolean;
-  morningCronJobId?: string;
-  eveningCronJobId?: string;
-}
+export type OuraEndpoint = (typeof OURA_ENDPOINTS)[number];
+export type BaselineMetricKey = (typeof BASELINE_METRICS)[number];
 
 export interface OuraTokenResponse {
   access_token: string;
@@ -71,25 +58,6 @@ export interface DailyActivity {
   active_calories: number;
   total_calories: number;
   steps: number;
-  equivalent_walking_distance: number;
-  high_activity_time: number;
-  medium_activity_time: number;
-  low_activity_time: number;
-  sedentary_time: number;
-  resting_time: number;
-  met: {
-    interval: number;
-    items: number[];
-    timestamp: string;
-  };
-  contributors: {
-    meet_daily_targets: number | null;
-    move_every_hour: number | null;
-    recovery_time: number | null;
-    stay_active: number | null;
-    training_frequency: number | null;
-    training_volume: number | null;
-  };
 }
 
 export interface SleepPeriod {
@@ -103,13 +71,11 @@ export interface SleepPeriod {
   light_sleep_duration: number;
   deep_sleep_duration: number;
   rem_sleep_duration: number;
-  restless_periods: number;
   efficiency: number;
   average_heart_rate: number | null;
   lowest_heart_rate: number | null;
   average_hrv: number | null;
   type: string;
-  readiness_score_delta: number | null;
 }
 
 export interface DailyStress {
@@ -120,43 +86,115 @@ export interface DailyStress {
   day_summary: string | null;
 }
 
-export type OuraEndpoint =
-  | "daily_activity"
-  | "daily_cardiovascular_age"
-  | "daily_readiness"
-  | "daily_resilience"
-  | "daily_sleep"
-  | "daily_spo2"
-  | "daily_stress"
-  | "enhanced_tag"
-  | "heartrate"
-  | "personal_info"
-  | "rest_mode_period"
-  | "ring_configuration"
-  | "session"
-  | "sleep"
-  | "sleep_time"
-  | "tag"
-  | "vO2_max"
-  | "workout";
+export interface LegacyOuraConfig {
+  clientId?: string;
+  clientSecret?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  tokenExpiresAt?: number;
+}
 
-export const OURA_ENDPOINTS: OuraEndpoint[] = [
-  "daily_activity",
-  "daily_cardiovascular_age",
-  "daily_readiness",
-  "daily_resilience",
-  "daily_sleep",
-  "daily_spo2",
-  "daily_stress",
-  "enhanced_tag",
-  "heartrate",
-  "personal_info",
-  "rest_mode_period",
-  "ring_configuration",
-  "session",
-  "sleep",
-  "sleep_time",
-  "tag",
-  "vO2_max",
-  "workout",
-];
+export interface OuraAuthState {
+  clientId?: string;
+  clientSecret?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  tokenExpiresAt?: number;
+}
+
+export interface FixedThresholdConfig {
+  sleepScoreMin: number;
+  readinessScoreMin: number;
+  temperatureDeviationMax: number;
+}
+
+export interface BaselineMetricSnapshot {
+  median: number;
+  low: number;
+  high: number;
+  sampleSize: number;
+}
+
+export interface BaselineSnapshot {
+  mode: 'calendar-weeks' | 'rolling-21-days';
+  updatedAt: string;
+  sourceStartDay: string;
+  sourceEndDay: string;
+  weeks?: string[];
+  metrics: Partial<Record<BaselineMetricKey, BaselineMetricSnapshot>>;
+}
+
+export interface OuraCliState {
+  schemaVersion: number;
+  auth: OuraAuthState;
+  thresholds: FixedThresholdConfig;
+  baseline?: BaselineSnapshot;
+}
+
+export interface OuraRecord {
+  day: string;
+  averageHrv?: number | null;
+  lowestHeartRate?: number | null;
+  totalSleepDuration?: number | null;
+}
+
+export interface OAuthStartInput {
+  clientId: string;
+  redirectUri?: string;
+  scopes?: string;
+}
+
+export interface OAuthStartResult {
+  authorizeUrl: string;
+  state: string;
+  codeVerifier: string;
+  codeChallenge: string;
+  redirectUri: string;
+}
+
+export interface FixedThresholdInput {
+  sleepScore: number;
+  readinessScore: number;
+  temperatureDeviation: number;
+  thresholds: FixedThresholdConfig;
+}
+
+export interface FixedThresholdResult {
+  ordinary: boolean;
+  reasons: string[];
+}
+
+export interface MorningOptimizedToday {
+  day: string;
+  sleepScore: number | null;
+  readinessScore: number | null;
+  temperatureDeviation: number | null;
+  averageHrv?: number | null;
+  lowestHeartRate?: number | null;
+  totalSleepDuration?: number | null;
+}
+
+export interface MorningOptimizedInput {
+  today: MorningOptimizedToday;
+  thresholds: FixedThresholdConfig;
+  baseline?: BaselineSnapshot;
+  baselineStatus?: 'ready' | 'missing' | 'stale' | 'refresh_failed';
+}
+
+export interface MorningOptimizedResult {
+  dataReady: boolean;
+  ordinary: boolean;
+  shouldSend: boolean;
+  baselineStatus?: 'ready' | 'missing' | 'stale' | 'refresh_failed';
+  message?: string;
+  today: MorningOptimizedToday;
+  baseline?: BaselineSnapshot;
+  reasons: string[];
+}
+
+export interface SummaryResult {
+  day: string;
+  message: string;
+  missing: string[];
+  payload: Record<string, unknown>;
+}
