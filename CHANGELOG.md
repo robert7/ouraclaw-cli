@@ -26,6 +26,8 @@ All notable changes to this project will be documented in this file.
   sensitivity configurable through percentile bands and breach-count settings.
 - Updated the main README to highlight the optimized morning flow and link directly to the detailed guide.
 - Updated `setup` so it can hand off into the same scheduling walkthrough when OpenClaw is available.
+- Updated the development toolchain to current supported Vitest and ESLint stacks, including migration to ESLint flat
+  config and removal of deprecated install-time dependency warnings.
 
 ## [0.2.0] - 2026-03-13
 
@@ -47,8 +49,6 @@ All notable changes to this project will be documented in this file.
 - Updated `skills/oura/SKILL.md` to call `ouraclaw-cli` directly and render summaries from skill-owned templates using
   CLI JSON output.
 - Replaced plugin-centric README/docs with standalone CLI architecture and command guides.
-- Adjusted OAuth authorization requests to use Oura's documented `http://localhost:9876/callback` redirect URI and
-  removed undocumented PKCE parameters while keeping `state` validation.
 
 ### Removed
 

@@ -160,7 +160,7 @@ async function promptTimeValue(
   label: string,
   defaultValue: string
 ): Promise<string> {
-  let value = defaultValue;
+  let value: string;
   do {
     value = await ask(rl, label, defaultValue);
     if (isValidTimeOfDay(value)) {
@@ -172,7 +172,7 @@ async function promptTimeValue(
 }
 
 async function promptTimezoneValue(rl: readline.Interface, defaultValue: string): Promise<string> {
-  let value = defaultValue;
+  let value: string;
   do {
     value = await ask(rl, 'Timezone', defaultValue);
     if (isValidTimezone(value)) {
@@ -187,7 +187,7 @@ async function promptIntervalMinutes(
   rl: readline.Interface,
   defaultValue: number
 ): Promise<number> {
-  let value = defaultValue;
+  let value: number;
   do {
     value = Number(await ask(rl, 'Optimized watcher interval minutes', String(defaultValue)));
     if (Number.isInteger(value) && value > 0) {
@@ -585,7 +585,6 @@ async function buildMorningOptimizedResult(
     : 'missing';
 
   if (!baseline || isBaselineStale(baseline, new Date())) {
-    baselineStatus = baseline ? 'stale' : 'missing';
     try {
       const window = getAutomaticBaselineWindow(new Date());
       const records = await fetchMorningBaselineRecordsForRange(
