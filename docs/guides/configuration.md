@@ -25,4 +25,4 @@ Automatic baseline refresh is attempted only by `summary morning-optimized`.
 ## Migration
 
 On first read the CLI imports compatible auth fields from the legacy OpenClaw plugin config if it exists. The old file
-is left untouched.
+is left untouched. For the full plugin-to-CLI migration flow, see the [Migration Guide](migrating-from-openclaw-plugin.md).

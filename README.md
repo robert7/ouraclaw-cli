@@ -18,6 +18,8 @@ builds summary output, and ships an optional OpenClaw skill that invokes the CLI
 npm install -g @robertvii/ouraclaw-cli
 ```
 
+Migrating from the old OpenClaw plugin? See [Migration Guide](docs/guides/migrating-from-openclaw-plugin.md).
+
 Or from source:
 
 ```bash
@@ -68,6 +70,7 @@ OpenClaw and keeps command invocations short and allowlist-friendly.
 - [Architecture](docs/architecture.md)
 - [Command reference](docs/guides/command-reference.md)
 - [Configuration](docs/guides/configuration.md)
+- [Migration Guide](docs/guides/migrating-from-openclaw-plugin.md)
 - [Troubleshooting](docs/guides/troubleshooting.md)
 
 ## Development
