@@ -106,6 +106,14 @@ describe('cli actions', () => {
     expect(printJson).toHaveBeenCalledWith({ data: [{ id: 'sleep' }] });
   });
 
+  test('uses the updated setup handoff prompt for scheduled delivery', async () => {
+    const { getScheduleSetupHandoffPrompt } = await import('../src/cli');
+
+    expect(getScheduleSetupHandoffPrompt()).toBe(
+      'Setup complete. Continue with scheduled delivery setup'
+    );
+  });
+
   test('rebuilds manual baseline and prints it', async () => {
     ensureValidAccessToken.mockResolvedValue('token');
     readState.mockReturnValue({

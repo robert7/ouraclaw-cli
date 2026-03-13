@@ -124,6 +124,10 @@ export function getBrowserOpenPrompt(headlessHint: boolean): {
   };
 }
 
+export function getScheduleSetupHandoffPrompt(): string {
+  return 'Setup complete. Continue with scheduled delivery setup';
+}
+
 function getSuggestedTimezone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_SCHEDULE_CONFIG.timezone;
 }
@@ -834,7 +838,7 @@ export async function runSetup(): Promise<void> {
     if (isOpenClawAvailable()) {
       const shouldConfigureSchedule = await confirm(
         rl,
-        'OpenClaw detected. Configure scheduled jobs now',
+        getScheduleSetupHandoffPrompt(),
         true
       );
       if (shouldConfigureSchedule) {
