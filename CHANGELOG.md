@@ -4,31 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-13
+
 ### Added
 
-- Added a standalone `ouraclaw-cli` CLI with JSON-first commands for setup, auth, fetch, config, baseline management, and
-  morning/evening summaries.
-- Added hardened OAuth helpers with `state`, explicit `127.0.0.1` callback binding, and timeout cleanup.
-- Added local state management at `$HOME/.ouraclaw-cli/ouraclaw-cli.json`, including migration from the old OpenClaw plugin
-  config path and private file-permission enforcement.
+- Added the standalone `ouraclaw-cli` CLI with JSON-first commands for setup, auth, fetch, config, baseline management,
+  and morning/evening summaries.
+- Added hardened OAuth handling with `state` validation, explicit localhost callback binding, and timeout cleanup.
+- Added local state storage at `$HOME/.ouraclaw-cli/ouraclaw-cli.json`, including migration from the legacy OpenClaw
+  plugin config path and private file-permission enforcement.
 - Added baseline and threshold decision logic for `summary morning-optimized`.
-- Added Vitest coverage for state migration, OAuth behavior, Oura fetch requests, baseline computation, thresholds, and
-  summary flows.
-- Added packaged OpenClaw skill tooling under `skills/` plus a ClawHub upload helper.
+- Added packaged OpenClaw skill assets under `skills/` plus a ClawHub upload helper.
 
 ### Changed
 
-- Renamed the project/package/binary identity to `ouraclaw-cli` and updated npm publishing to the org-scoped public
-  package `@robertvii/ouraclaw-cli`.
+- Renamed the project, package, and binary identity to `ouraclaw-cli`, publishing the package as
+  `@robertvii/ouraclaw-cli`.
 - Converted the project from an OpenClaw plugin package into a standalone CLI package that ships an optional skill.
-- Rewrote `skills/oura/SKILL.md` to invoke `ouraclaw-cli` directly instead of relying on an `oura_data` plugin tool.
-- Reworked `skills/oura/SKILL.md` so normal morning/evening summaries and optimized morning alerts are rendered from
-  skill-owned templates and channel-formatting guidance using JSON output from `ouraclaw-cli`, with delivery language
-  taken from the request rather than hardcoded English.
+- Updated `skills/oura/SKILL.md` to call `ouraclaw-cli` directly and render summaries from skill-owned templates using
+  CLI JSON output.
 - Replaced plugin-centric README/docs with standalone CLI architecture and command guides.
-- Adjusted OAuth authorize requests to match Oura's documented contract by using the exact
-  `http://localhost:9876/callback` redirect URI and removing undocumented PKCE parameters while keeping `state`
-  validation.
+- Adjusted OAuth authorization requests to use Oura's documented `http://localhost:9876/callback` redirect URI and
+  removed undocumented PKCE parameters while keeping `state` validation.
 
 ### Removed
 
