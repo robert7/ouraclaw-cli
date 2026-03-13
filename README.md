@@ -4,6 +4,16 @@
 [![npm version](https://img.shields.io/npm/v/%40robertvii%2Fouraclaw-cli)](https://www.npmjs.com/package/@robertvii/ouraclaw-cli)
 [![codecov](https://codecov.io/gh/robert7/ouraclaw-cli/branch/main/graph/badge.svg)](https://codecov.io/gh/robert7/ouraclaw-cli)
 
+Based on [Ricky Bloomfield's OuraClaw](https://github.com/rickybloomfield/OuraClaw). This fork refactors the original
+OpenClaw plugin into a standalone CLI, keeps compatibility with the original `oura` skill via a CLI-backed adaptation,
+and adds an optimized morning flow that only sends when something is genuinely out of the ordinary while avoiding stale
+yesterday fallback data.
+
+The core upgrade over upstream is architectural and behavioral: Oura automation now lives in a standalone, JSON-first
+CLI instead of a plugin runtime, so it is easier to test, script, reuse, and integrate beyond OpenClaw. On top of
+that, the optimized morning flow is more trustworthy for daily use because it avoids noisy always-send behavior and
+prevents summaries from quietly leaning on stale yesterday data.
+
 `ouraclaw-cli` is a standalone CLI for Oura automation. It fetches Oura data, manages OAuth tokens and local thresholds,
 builds summary output, and ships an optional OpenClaw skill that invokes the CLI directly.
 
