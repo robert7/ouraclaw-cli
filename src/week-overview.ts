@@ -74,14 +74,38 @@ function toWeekMetric(signal: MetricSignal): WeekOverviewMetric {
   };
 }
 
-function buildSummaryLine(day: MorningOptimizedToday, shouldAlert: boolean): string {
-  const status = shouldAlert ? 'Attention needed.' : 'No attention flags.';
-  return [
-    `Sleep ${day.sleepScore ?? 'n/a'}`,
-    `readiness ${day.readinessScore ?? 'n/a'}`,
-    `total ${formatDuration(day.totalSleepDuration ?? null)}`,
-    status,
-  ].join(', ');
+function formatTemperature(value: number): string {
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)}C`;
+}
+
+function buildSummaryLine(metrics: WeekOverviewMetric[]): string {
+  const summaryMetricOrder: BaselineMetricKey[] = [
+    'sleepScore',
+    'readinessScore',
+    'totalSleepDuration',
+    'temperatureDeviation',
+    'lowestHeartRate',
+    'averageHrv',
+  ];
+  const formatters: Record<BaselineMetricKey, (value: number) => string> = {
+    sleepScore: (value) => `Sleep ${value}`,
+    readinessScore: (value) => `Readiness ${value}`,
+    temperatureDeviation: (value) => `Temp ${formatTemperature(value)}`,
+    averageHrv: (value) => `HRV ${value} ms`,
+    lowestHeartRate: (value) => `Lowest HR ${value} bpm`,
+    totalSleepDuration: (value) => `Total ${formatDuration(value)}`,
+  };
+
+  return summaryMetricOrder
+    .flatMap((metric) => {
+      const item = metrics.find((entry) => entry.metric === metric);
+      if (!item || item.value == null) {
+        return [];
+      }
+      const prefix = item.attention ? '⚠️ ' : '';
+      return `${prefix}${formatters[metric](item.value)}`;
+    })
+    .join(' | ');
 }
 
 function buildTopAttentionMetrics(days: WeekOverviewDay[]): WeekOverviewTopAttentionMetric[] {
@@ -136,17 +160,17 @@ export function buildWeekOverview(input: {
     });
     const signals =
       result.metricSignals.length > 0 ? result.metricSignals : buildFallbackSignals(today);
-    const hasAttentionMetric = signals.some((signal) => signal.attention);
+    const metrics = signals.map(toWeekMetric);
 
     return {
       day: today.day,
       dataReady: result.dataReady,
       shouldAlert: result.shouldAlert,
-      summaryLine: buildSummaryLine(today, hasAttentionMetric),
+      summaryLine: buildSummaryLine(metrics),
       alertMetrics: result.alertMetrics,
       alertReasons: result.alertReasons,
       skipReasons: result.skipReasons,
-      metrics: signals.map(toWeekMetric),
+      metrics,
     };
   });
 

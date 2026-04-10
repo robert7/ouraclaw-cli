@@ -122,9 +122,10 @@ range is the last seven days including today. With only `--start-date`, the rang
 With only `--end-date`, the range is that date and the previous six days. With both flags, the inclusive range must be
 exactly seven days.
 
-The result includes `period`, `baselineStatus`, `overview`, and `days`. Each day includes a concise `summaryLine`,
-`dataReady`, `shouldAlert`, `alertMetrics`, `alertReasons`, `skipReasons`, and all six optimized metrics with value,
-unit, baseline bounds when available, attention state, direction, severity, and reasons.
+The result includes `period`, `baselineStatus`, `overview`, and `days`. Each day includes a concise `summaryLine` with
+available metrics only and `⚠️` before attention metrics, plus `dataReady`, `shouldAlert`, `alertMetrics`,
+`alertReasons`, `skipReasons`, and all six optimized metrics with value, unit, baseline bounds when available,
+attention state, direction, severity, and reasons.
 
 ### `ouraclaw-cli summary morning-optimized-confirm --delivery-key <deliveryKey> [--delivery-mode unusual-only|daily-when-ready]`
 

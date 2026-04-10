@@ -95,6 +95,8 @@ describe('week-overview', () => {
       expect.objectContaining({
         day: '2026-04-05',
         shouldAlert: true,
+        summaryLine:
+          'Sleep 81 | Readiness 82 | Total 7h 30m | Temp +0.0C | ⚠️ Lowest HR 55 bpm | ⚠️ HRV 30 ms',
         alertMetrics: expect.arrayContaining(['averageHrv', 'lowestHeartRate']),
       })
     );
@@ -121,13 +123,15 @@ describe('week-overview', () => {
       expect.objectContaining({
         day: '2026-04-07',
         shouldAlert: false,
-        summaryLine: expect.stringContaining('Attention needed.'),
+        summaryLine:
+          'Sleep 82 | Readiness 83 | Total 7h 13m | Temp +0.0C | Lowest HR 49 bpm | ⚠️ HRV 30 ms',
       })
     );
     expect(result.days[6]).toEqual(
       expect.objectContaining({
         day: '2026-04-10',
         dataReady: false,
+        summaryLine: '',
         skipReasons: expect.arrayContaining(['missing_sleep_score']),
       })
     );
