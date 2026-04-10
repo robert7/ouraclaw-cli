@@ -28,6 +28,9 @@ Runtime requirement: Node.js 20 or newer.
 Interactive onboarding. Collects client credentials, runs OAuth, stores threshold and baseline defaults, and can
 optionally hand off into the OpenClaw scheduling walkthrough when `openclaw` is available.
 
+Setup always configures the standalone CLI first. If OpenClaw is unavailable, it skips OpenClaw scheduled delivery,
+prints a short explanation before the JSON result, and returns `deliverySetup.reason: "openclaw_unavailable"`.
+
 ### `ouraclaw-cli auth status`
 
 Returns JSON describing whether auth is configured, whether the access token is expired, and whether refresh is

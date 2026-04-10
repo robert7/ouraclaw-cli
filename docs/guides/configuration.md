@@ -19,9 +19,10 @@ The setup wizard also stores baseline tuning separately from fixed thresholds:
 - lower percentile: `25`
 - supporting metric alert count: `2`
 
-Lower percentile controls how wide the personal ordinary band is. `10` is wide and quieter, `25` is the balanced
-default, and `40` is narrow and much more sensitive. Supporting metric alert count controls how many worse supporting
-baseline signals are needed before the optimized routine sends an alert. Primary metrics can alert by themselves.
+Lower percentile controls how wide the personal normal band is. `10` is wide and quieter, `25` is the balanced default,
+and `40` is narrow and much more sensitive. A lower percentile of `25` means the normal band runs from the 25th to 75th
+percentile of the baseline data. Supporting metric alert count controls how many worse supporting baseline signals are
+needed before the optimized routine sends an alert. Primary metrics can alert by themselves.
 
 ## Baseline Snapshot
 

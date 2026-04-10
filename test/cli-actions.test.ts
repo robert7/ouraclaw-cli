@@ -106,11 +106,29 @@ describe('cli actions', () => {
     expect(printJson).toHaveBeenCalledWith({ data: [{ id: 'sleep' }] });
   });
 
-  test('uses the updated setup handoff prompt for scheduled delivery', async () => {
-    const { getScheduleSetupHandoffPrompt } = await import('../src/cli');
+  test('uses explicit setup guidance for optional OpenClaw delivery', async () => {
+    const {
+      buildSetupCompletionMessage,
+      getBaselineSensitivityExplanation,
+      getScheduleSetupHandoffPrompt,
+    } = await import('../src/cli');
 
     expect(getScheduleSetupHandoffPrompt()).toBe(
-      'Setup complete. Continue with scheduled delivery setup'
+      'Setup complete. Continue with OpenClaw scheduled delivery setup'
+    );
+    expect(getBaselineSensitivityExplanation()).toContain(
+      'lower percentile 25 means the normal band runs from the 25th to 75th percentile'
+    );
+    expect(
+      buildSetupCompletionMessage({
+        attempted: false,
+        configured: false,
+        provider: 'openclaw',
+        available: false,
+        reason: 'openclaw_unavailable',
+      })
+    ).toBe(
+      'Setup complete. OpenClaw is not available, so OpenClaw scheduled delivery was skipped.\nThe CLI is fully usable without OpenClaw; run commands manually or connect another scheduler.'
     );
   });
 

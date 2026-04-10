@@ -16,6 +16,8 @@ All notable changes to this project will be documented in this file.
   triggers an alert, while worse primary metrics can still alert by themselves.
 - Renamed baseline tuning from breached-metric counting to `baselineConfig.supportingMetricAlertCount`, defaulting to
   two worse supporting metrics before the optimized baseline path alerts.
+- Clarified setup output when OpenClaw is unavailable and added explicit percentile-band wording to the baseline
+  sensitivity prompt.
 - Upgraded runtime and tooling dependencies in phases, including `commander` 14, TypeScript 6, ESLint 10.2, Vitest 4.1.3, and related type/lint packages.
 - Raised the documented and enforced Node.js engine floor to 20 to match the supported runtime and CI.
 - Updated the TypeScript compiler configuration from legacy Node resolution to `Node16`/`node16` so typecheck stays compatible with TypeScript 6.

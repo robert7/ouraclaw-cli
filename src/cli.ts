@@ -125,7 +125,14 @@ export function getBrowserOpenPrompt(headlessHint: boolean): {
 }
 
 export function getScheduleSetupHandoffPrompt(): string {
-  return 'Setup complete. Continue with scheduled delivery setup';
+  return 'Setup complete. Continue with OpenClaw scheduled delivery setup';
+}
+
+export function getBaselineSensitivityExplanation(): string {
+  return [
+    'Baseline sensitivity controls how wide your personal normal range is. 10 = fewer baseline signals, 25 = balanced default, 40 = more sensitive.',
+    'For example, lower percentile 25 means the normal band runs from the 25th to 75th percentile of your baseline data.',
+  ].join(' ');
 }
 
 function getSuggestedTimezone(): string {
@@ -355,6 +362,32 @@ interface ScheduleSetupResult {
   schedule: ScheduleConfig;
   legacyDetected: boolean;
   removedLegacyJobIds: string[];
+}
+
+export interface DeliverySetupResult {
+  attempted: boolean;
+  configured: boolean;
+  provider: 'openclaw';
+  available: boolean;
+  reason?: 'openclaw_unavailable' | 'skipped_by_user';
+  schedule?: ScheduleConfig;
+  legacyDetected?: boolean;
+  removedLegacyJobIds?: string[];
+}
+
+export function buildSetupCompletionMessage(deliverySetup: DeliverySetupResult): string {
+  if (!deliverySetup.available) {
+    return [
+      'Setup complete. OpenClaw is not available, so OpenClaw scheduled delivery was skipped.',
+      'The CLI is fully usable without OpenClaw; run commands manually or connect another scheduler.',
+    ].join('\n');
+  }
+
+  if (!deliverySetup.configured) {
+    return 'Setup complete. OpenClaw scheduled delivery was skipped; the CLI is fully usable manually.';
+  }
+
+  return 'Setup complete. OpenClaw scheduled delivery is configured.';
 }
 
 async function runScheduleSetupFlow(
@@ -759,9 +792,7 @@ export async function runSetup(): Promise<void> {
     });
 
     const baselineDefaults: BaselineConfig = existing.baselineConfig ?? defaultBaselineConfig();
-    printText(
-      'Baseline sensitivity controls how wide your personal "ordinary" range is. 10 = fewer alerts, 25 = balanced default, 40 = more alerts.'
-    );
+    printText(getBaselineSensitivityExplanation());
     const lowerPercentile = Number(
       (await ask(rl, 'Baseline lower percentile', String(baselineDefaults.lowerPercentile))) ||
         baselineDefaults.lowerPercentile
@@ -837,25 +868,37 @@ export async function runSetup(): Promise<void> {
     freshState.baselineConfig = baselineConfig;
     writeState(freshState);
 
-    let scheduleResult: ScheduleSetupResult | undefined;
-    if (isOpenClawAvailable()) {
+    const openclawAvailable = isOpenClawAvailable();
+    let deliverySetup: DeliverySetupResult = {
+      attempted: false,
+      configured: false,
+      provider: 'openclaw',
+      available: openclawAvailable,
+      reason: openclawAvailable ? 'skipped_by_user' : 'openclaw_unavailable',
+    };
+    if (openclawAvailable) {
       const shouldConfigureSchedule = await confirm(rl, getScheduleSetupHandoffPrompt(), true);
       if (shouldConfigureSchedule) {
-        scheduleResult = await runScheduleSetupFlow(rl, false);
+        const scheduleResult = await runScheduleSetupFlow(rl, false);
+        deliverySetup = {
+          attempted: true,
+          configured: scheduleResult.configured,
+          provider: 'openclaw',
+          available: scheduleResult.openclawAvailable,
+          schedule: scheduleResult.schedule,
+          legacyDetected: scheduleResult.legacyDetected,
+          removedLegacyJobIds: scheduleResult.removedLegacyJobIds,
+        };
       }
     }
 
+    printText(buildSetupCompletionMessage(deliverySetup));
     printJson({
       ok: true,
       configured: true,
       thresholdSource: 'state',
       tokenExpiresAt: freshState.auth.tokenExpiresAt ?? null,
-      schedule:
-        scheduleResult ??
-        ({
-          configured: false,
-          openclawAvailable: isOpenClawAvailable(),
-        } satisfies Partial<ScheduleSetupResult>),
+      deliverySetup,
     });
   } finally {
     rl.close();

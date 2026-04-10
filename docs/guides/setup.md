@@ -38,7 +38,8 @@ The wizard will:
 4. Ask whether the CLI should open the OAuth URL in a browser now.
 5. Use a headless/SSH-aware default for that browser prompt and print the URL if you prefer to open it manually.
 6. Store local state in `$HOME/.ouraclaw-cli/ouraclaw-cli.json`.
-7. Finish by asking `Setup complete. Continue with scheduled delivery setup? [Y/n]` when `openclaw` is installed.
+7. Finish by asking `Setup complete. Continue with OpenClaw scheduled delivery setup? [Y/n]` when `openclaw` is
+   installed.
 
 The setup prompt never prints the stored client secret back to the terminal. If a secret is already stored, pressing
 Enter keeps it.
@@ -46,6 +47,9 @@ Enter keeps it.
 ## 3. Optional OpenClaw Scheduling
 
 If OpenClaw is installed, setup can hand off directly into `ouraclaw-cli schedule setup` from the final prompt above.
+If OpenClaw is not installed, setup still completes the standalone CLI configuration and prints a short note before the
+JSON result. The final JSON uses `deliverySetup` to report that OpenClaw delivery was skipped while the CLI remains
+fully usable for manual commands or another scheduler.
 
 That walkthrough can configure:
 
