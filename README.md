@@ -5,12 +5,14 @@
 [![codecov](https://codecov.io/gh/robert7/ouraclaw-cli/branch/main/graph/badge.svg)](https://codecov.io/gh/robert7/ouraclaw-cli)
 
 Based on [Ricky Bloomfield's OuraClaw](https://github.com/rickybloomfield/OuraClaw), this fork refactors the original
-OpenClaw plugin into a standalone, JSON-first CLI while keeping the `oura` skill compatible through a CLI-backed
-adaptation. It also adds an **[optimized morning flow](docs/guides/optimized-morning-routine.md)** that avoids stale
-yesterday fallback data and only sends alerts when today's data needs attention.
+OpenClaw plugin into a standalone, JSON-first CLI. It keeps the shipped `oura` skill compatible through a CLI-backed
+adaptation, but the CLI itself is not tied to OpenClaw. It can be used from shell scripts, cron, other agent systems,
+or any automation runner that can invoke a command and consume JSON. It also adds an
+**[optimized morning flow](docs/guides/optimized-morning-routine.md)** that avoids stale yesterday fallback data and
+only sends alerts when today's data needs attention.
 
 `ouraclaw-cli` is a standalone CLI for Oura automation. It fetches Oura data, manages OAuth tokens and local thresholds,
-builds summary output, and ships an optional OpenClaw skill that invokes the CLI directly.
+builds summary output, and ships an optional OpenClaw skill for users who want OpenClaw-managed delivery.
 
 ## Install
 
@@ -58,9 +60,25 @@ OpenClaw delivery was skipped.
 
 Oura validates the redirect URI string literally, so it must be exactly `http://localhost:9876/callback`.
 
+## Works with Any Automation
+
+OpenClaw is one integration, not a requirement.
+
+`ouraclaw-cli` is designed to be useful with:
+
+- OpenClaw
+- cron jobs
+- shell scripts
+- other agent runtimes
+- manual CLI use
+
+JSON is the default output mode, so the CLI can act as the stable machine interface while a separate automation layer
+decides how, when, and where to deliver messages.
+
 ## Key Guides
 
 - [Setup guide](docs/guides/setup.md)
+- [Command reference](docs/guides/command-reference.md)
 - [Scheduling guide](docs/guides/scheduling.md)
 - [Optimized morning routine](docs/guides/optimized-morning-routine.md)
 - [Migration Guide](docs/guides/migrating-from-openclaw-plugin.md)
@@ -81,6 +99,9 @@ ouraclaw-cli summary evening --text
 ```
 
 JSON is the default output mode. Use `--text` on summary commands when you want a ready-to-send recap.
+
+`summary week-overview` defaults to the last seven days including today and also supports
+`--start-date YYYY-MM-DD` / `--end-date YYYY-MM-DD` for a custom seven-day window.
 
 ## Scheduling
 
@@ -117,6 +138,15 @@ delivery-confirmation flow.
 
 The scheduler can also use that same optimized flow for daily delivery. In that mode it still waits for real Oura sync
 instead of firing too early, and the skill can show all optimized metrics while marking worse-than-baseline values.
+
+## Weekly Overview
+
+`summary week-overview` builds a compact seven-day JSON overview that is meant for brief weekly recaps: one line per
+day, all six optimized metrics in a fixed order, and explicit attention markers for the values that need a closer look.
+
+The command is useful on its own for manual review or external automations, and the shipped Oura skill now includes a
+dedicated weekly template for localized delivery. This also sets up the planned Monday flow where the weekly overview
+can be embedded into the optimized morning message.
 
 ## OpenClaw Skill
 

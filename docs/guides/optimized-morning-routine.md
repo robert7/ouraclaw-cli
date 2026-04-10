@@ -102,6 +102,15 @@ firing before Oura has synced yet.
 - ready day with alert => `shouldAlert: true`, `alertMetrics` contains the alert-driving metrics, and
   `metricSignals` still includes all available metrics
 
+## Weekly Context
+
+The CLI also exposes `summary week-overview` as a separate seven-day JSON summary. It defaults to the last seven days
+including today and is shaped for brief localized recaps: one concise daily line, explicit attention markers, and
+structured per-metric fields for agent rendering.
+
+That weekly command is independent of the optimized morning decision, but it is the intended input for future Monday
+messages that combine the normal morning check with a quick look back at the previous week.
+
 ## Delivery Handshake
 
 If `summary morning-optimized` returns `shouldSend: true`, it also returns a `deliveryKey`.

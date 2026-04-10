@@ -1,14 +1,15 @@
 # Architecture
 
 `ouraclaw-cli` keeps Oura automation logic in one TypeScript CLI instead of splitting behavior between an OpenClaw plugin,
-prompt templates, and shell glue.
+prompt templates, and shell glue. OpenClaw is one supported integration, but the CLI is designed to stay useful on its
+own for any automation layer that can run commands and consume JSON.
 
 The core runtime has four responsibilities:
 
 1. Authentication and token refresh against the Oura OAuth endpoints.
 2. Private local state storage at `$HOME/.ouraclaw-cli/ouraclaw-cli.json`.
 3. Oura API fetches plus summary and baseline evaluation.
-4. A thin OpenClaw integration layer through the shipped skill in `skills/oura/`.
+4. A thin optional OpenClaw integration layer through the shipped skill in `skills/oura/`.
 
 ## State Model
 
@@ -68,6 +69,10 @@ alerts for the rest of the same calendar day.
 
 The OpenClaw skill does not reimplement business logic. It invokes `ouraclaw-cli` directly, defaults to one command per
 execution, prefers JSON for automation, and uses `--text` only when it needs a sendable recap string.
+
+The same JSON-first contract is intended to work equally well for non-OpenClaw automations. In addition to the daily
+recap commands and optimized morning decision, `summary week-overview` is a first-class structured output for concise
+weekly recaps and localized agent rendering.
 
 ## Scheduling
 

@@ -27,6 +27,8 @@ All notable changes to this project will be documented in this file.
   metric lists, and missing metric lists.
 - Added a dedicated `summary week-overview` skill template with explicit delivery-language guidance for localized
   weekly recaps.
+- Clarified the README and core docs so the CLI is positioned as automation-first and usable without OpenClaw, while
+  promoting `summary week-overview` as a first-class recap surface.
 - Upgraded runtime and tooling dependencies in phases, including `commander` 14, TypeScript 6, ESLint 10.2, Vitest 4.1.3, and related type/lint packages.
 - Raised the documented and enforced Node.js engine floor to 20 to match the supported runtime and CI.
 - Updated the TypeScript compiler configuration from legacy Node resolution to `Node16`/`node16` so typecheck stays compatible with TypeScript 6.
