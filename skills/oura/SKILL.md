@@ -287,6 +287,47 @@ Attention: sleep and readiness are below your usual morning range.
 Worth taking today a bit gentler if you can.
 ```
 
+## Week Overview Template
+
+When delivering a seven-day overview, run:
+
+`ouraclaw-cli summary week-overview`
+
+Use the returned JSON fields `period`, `metricOrder`, `overview`, and `days` as the source data.
+
+Send only the formatted overview in the delivery language, with no extra preamble or commentary.
+
+Format rules:
+
+- Start with a short header covering the seven-day range in the delivery language.
+- Then write one concise line per day, in chronological order.
+- Build each daily line from `days[].metrics`, ordered by `metricOrder`.
+- Use `days[].summaryLine` as English fallback context only. For non-English output, render from structured fields
+  instead of translating `summaryLine` literally.
+- Prefix attention metrics with `⚠️` on WhatsApp, Telegram, Discord, Slack, and WebChat/default. Use `ATTENTION` on
+  plain-text channels.
+- Omit metrics listed only in `missingMetrics`. If a whole day has no metrics, say briefly that data is not ready yet.
+- Optionally add one short closing takeaway using `overview.attentionDays` or `overview.topAttentionMetrics`.
+- Keep it concise, roughly 8-10 lines total.
+- Bold only the header on channels that support bold. On plain text channels, do not use formatting markers.
+- The example below is English structure only. The real delivered message must use the requested delivery language.
+
+Example tone (plain text, structure only):
+
+```text
+Your Oura overview for Apr 4 – Apr 10.
+
+Sat: Sleep 81 | Readiness 84 | Total 6h 28m | ⚠️ Temp +0.3C
+Sun: Sleep 79 | ⚠️ Readiness 76 | Total 6h 05m | ⚠️ Lowest HR 55 bpm | ⚠️ HRV 30 ms
+Mon: Sleep 88 | Readiness 87 | Total 7h 41m | Temp +0.0C | Lowest HR 50 bpm | HRV 42 ms
+Tue: Sleep 85 | Readiness 80 | Total 6h 55m | ⚠️ Temp +0.2C | ⚠️ Lowest HR 64 bpm | HRV 18 ms
+Wed: Sleep 86 | Readiness 85 | Total 7h 12m | Temp +0.1C | Lowest HR 61 bpm | HRV 20 ms
+Thu: Sleep 83 | Readiness 82 | Total 6h 44m | ⚠️ Temp +0.2C | Lowest HR 62 bpm | HRV 19 ms
+Fri: Sleep 85 | Readiness 86 | Total 6h 52m | Temp +0.1C | Lowest HR 60 bpm | HRV 21 ms
+
+Main pattern: temperature was the most repeated attention signal this week.
+```
+
 ## Ad-hoc Query Mapping
 
 - "How did I sleep?" -> `ouraclaw-cli fetch daily_sleep`

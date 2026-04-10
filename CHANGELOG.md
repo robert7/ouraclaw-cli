@@ -25,6 +25,8 @@ All notable changes to this project will be documented in this file.
   previous calendar day.
 - Compacted weekly overview JSON around localization-friendly metric entries, ordered daily summary lines, attention
   metric lists, and missing metric lists.
+- Added a dedicated `summary week-overview` skill template with explicit delivery-language guidance for localized
+  weekly recaps.
 - Upgraded runtime and tooling dependencies in phases, including `commander` 14, TypeScript 6, ESLint 10.2, Vitest 4.1.3, and related type/lint packages.
 - Raised the documented and enforced Node.js engine floor to 20 to match the supported runtime and CI.
 - Updated the TypeScript compiler configuration from legacy Node resolution to `Node16`/`node16` so typecheck stays compatible with TypeScript 6.
