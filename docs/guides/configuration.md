@@ -17,11 +17,11 @@ These thresholds are CLI-owned configuration, not skill-owned prompt text. Adjus
 The setup wizard also stores baseline tuning separately from fixed thresholds:
 
 - lower percentile: `25`
-- breach metric count: `1`
+- supporting metric alert count: `2`
 
 Lower percentile controls how wide the personal ordinary band is. `10` is wide and quieter, `25` is the balanced
-default, and `40` is narrow and much more sensitive. Breach metric count controls how many unique same-day metric
-breaches are needed before the baseline path counts as triggered.
+default, and `40` is narrow and much more sensitive. Supporting metric alert count controls how many worse supporting
+baseline signals are needed before the optimized routine sends an alert. Primary metrics can alert by themselves.
 
 ## Baseline Snapshot
 

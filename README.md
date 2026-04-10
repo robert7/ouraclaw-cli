@@ -7,7 +7,7 @@
 Based on [Ricky Bloomfield's OuraClaw](https://github.com/rickybloomfield/OuraClaw), this fork refactors the original
 OpenClaw plugin into a standalone, JSON-first CLI while keeping the `oura` skill compatible through a CLI-backed
 adaptation. It also adds an **[optimized morning flow](docs/guides/optimized-morning-routine.md)** that avoids stale
-yesterday fallback data and only sends when something is genuinely out of the ordinary (configurable).
+yesterday fallback data and only sends alerts when today's data needs attention.
 
 `ouraclaw-cli` is a standalone CLI for Oura automation. It fetches Oura data, manages OAuth tokens and local thresholds,
 builds summary output, and ships an optional OpenClaw skill that invokes the CLI directly.
@@ -86,8 +86,8 @@ JSON is the default output mode. Use `--text` on summary commands when you want 
 - an optimized morning watcher that re-checks between a start and end time so you get notified as soon as Oura syncs
 
 Even if you want a morning message every day, the optimized watcher can still be the better setup. It can wait until
-today's Oura data is actually synced, then either alert only on unusual days or send every day once the real same-day
-data is ready.
+today's Oura data is actually synced, then either alert only when attention is needed or send every day once the real
+same-day data is ready.
 
 Run:
 
@@ -106,12 +106,12 @@ See [Scheduling guide](docs/guides/scheduling.md) for the full walkthrough and [
 ## Optimized Morning Flow
 
 `summary morning-optimized` is the quiet-by-default alert path: it compares today's Oura data against fixed thresholds
-plus your personal baseline and only recommends sending when something is genuinely out of the ordinary. See
+plus your personal baseline and only recommends an alert when something needs attention. See
 [Optimized morning routine](docs/guides/optimized-morning-routine.md) for the full decision logic, baseline tuning, and
 delivery-confirmation flow.
 
 The scheduler can also use that same optimized flow for daily delivery. In that mode it still waits for real Oura sync
-instead of firing too early, but it sends a normal morning recap once today's data is ready.
+instead of firing too early, and the skill can show all optimized metrics while marking worse-than-baseline values.
 
 ## OpenClaw Skill
 

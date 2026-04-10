@@ -299,7 +299,7 @@ async function promptOptimizedWatcherDeliveryMode(
   const choice = await select(
     rl,
     'Optimized watcher delivery mode:',
-    ['Alert only on unusual days', "Send every day once today's Oura data is ready"],
+    ['Alert only when attention is needed', "Send every day once today's Oura data is ready"],
     defaultValue === 'daily-when-ready' ? 1 : 0
   );
 
@@ -425,7 +425,7 @@ async function runScheduleSetupFlow(
   let optimizedWatcherDeliveryMode = currentSchedule.optimizedWatcherDeliveryMode;
   if (optimizedWatcherEnabled) {
     printText(
-      'Optimized watcher checks repeatedly inside a morning window until Oura data is ready or nothing unusual shows up.'
+      'Optimized watcher checks repeatedly inside a morning window until Oura data is ready or no attention-worthy signal shows up.'
     );
     printText(
       'If you still want a morning message every day, this mode can wait for real same-day sync and then send once the data is ready.'
@@ -510,8 +510,8 @@ export function setConfigValue(state: OuraCliState, key: string, value: string):
     state.thresholds.temperatureDeviationMax = Number(value);
   } else if (key === 'baselineConfig.lowerPercentile') {
     state.baselineConfig.lowerPercentile = Number(value);
-  } else if (key === 'baselineConfig.breachMetricCount') {
-    state.baselineConfig.breachMetricCount = Number(value);
+  } else if (key === 'baselineConfig.supportingMetricAlertCount') {
+    state.baselineConfig.supportingMetricAlertCount = Number(value);
   } else if (key === 'auth.clientId') {
     state.auth.clientId = value;
   } else if (key === 'auth.clientSecret') {
@@ -766,14 +766,17 @@ export async function runSetup(): Promise<void> {
       (await ask(rl, 'Baseline lower percentile', String(baselineDefaults.lowerPercentile))) ||
         baselineDefaults.lowerPercentile
     );
-    const breachMetricCount = Number(
-      (await ask(rl, 'Baseline breach metric count', String(baselineDefaults.breachMetricCount))) ||
-        baselineDefaults.breachMetricCount
+    const supportingMetricAlertCount = Number(
+      (await ask(
+        rl,
+        'Supporting baseline metrics needed for an alert',
+        String(baselineDefaults.supportingMetricAlertCount)
+      )) || baselineDefaults.supportingMetricAlertCount
     );
 
     const baselineConfig = validateBaselineConfig({
       lowerPercentile,
-      breachMetricCount,
+      supportingMetricAlertCount,
     });
 
     updateState({

@@ -108,7 +108,7 @@ describe('schedule helpers', () => {
     });
 
     expect(prompt).toContain('summary morning-optimized --delivery-mode daily-when-ready');
-    expect(prompt).toContain('deliveryType is "morning-summary"');
+    expect(prompt).toContain('use the nested morningSummary payload only as extra context');
     expect(prompt).toContain(
       'summary morning-optimized-confirm --delivery-mode daily-when-ready --delivery-key <deliveryKey>'
     );

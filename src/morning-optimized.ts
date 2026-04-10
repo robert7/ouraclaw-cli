@@ -1,26 +1,65 @@
-import { BASELINE_METRICS } from './config';
 import { createHash } from 'node:crypto';
+
+import { BASELINE_METRICS } from './config';
+import { formatDuration } from './date-utils';
 import { evaluateFixedThresholds } from './thresholds';
 import {
   BaselineMetricKey,
+  BaselineMetricSnapshot,
+  MetricSignal,
   MorningOptimizedInput,
   MorningOptimizedResult,
   OptimizedWatcherDeliveryMode,
 } from './types';
-import { formatDuration } from './date-utils';
 
-const baselineReasonMap: Record<BaselineMetricKey, string> = {
-  sleepScore: 'baseline_sleep_score_out_of_range',
-  readinessScore: 'baseline_readiness_score_out_of_range',
+const primaryAlertMetrics = new Set<BaselineMetricKey>([
+  'sleepScore',
+  'readinessScore',
+  'totalSleepDuration',
+]);
+
+const supportingAlertMetrics = new Set<BaselineMetricKey>([
+  'temperatureDeviation',
+  'averageHrv',
+  'lowestHeartRate',
+]);
+
+const baselineLowReasonMap: Partial<Record<BaselineMetricKey, string>> = {
+  sleepScore: 'baseline_sleep_score_low',
+  readinessScore: 'baseline_readiness_score_low',
   temperatureDeviation: 'baseline_temperature_deviation_out_of_range',
-  averageHrv: 'baseline_hrv_out_of_range',
-  lowestHeartRate: 'baseline_lowest_heart_rate_out_of_range',
-  totalSleepDuration: 'baseline_total_sleep_duration_out_of_range',
+  averageHrv: 'baseline_hrv_low',
+  totalSleepDuration: 'baseline_total_sleep_duration_low',
 };
+
+const baselineHighReasonMap: Partial<Record<BaselineMetricKey, string>> = {
+  temperatureDeviation: 'baseline_temperature_deviation_out_of_range',
+  lowestHeartRate: 'baseline_lowest_heart_rate_high',
+};
+
+const fixedReasonMetricMap: Record<string, BaselineMetricKey> = {
+  sleep_below_threshold: 'sleepScore',
+  readiness_below_threshold: 'readinessScore',
+  temperature_outside_threshold: 'temperatureDeviation',
+};
+
+function isLowerValueWorse(metric: BaselineMetricKey): boolean {
+  return (
+    metric === 'sleepScore' ||
+    metric === 'readinessScore' ||
+    metric === 'averageHrv' ||
+    metric === 'totalSleepDuration' ||
+    metric === 'temperatureDeviation'
+  );
+}
+
+function isHigherValueWorse(metric: BaselineMetricKey): boolean {
+  return metric === 'lowestHeartRate' || metric === 'temperatureDeviation';
+}
 
 function buildAlertMessage(result: MorningOptimizedResult): string {
   return [
-    `Good morning. Today's Oura data is outside your ordinary range for ${result.today.day}.`,
+    `Good morning. Today's Oura data needs attention for ${result.today.day}.`,
     `Sleep ${result.today.sleepScore}, readiness ${result.today.readinessScore}, temp ${
       result.today.temperatureDeviation == null
         ? 'n/a'
@@ -29,7 +68,7 @@ function buildAlertMessage(result: MorningOptimizedResult): string {
     `Detailed sleep: HRV ${result.today.averageHrv ?? 'n/a'} ms, lowest HR ${
       result.today.lowestHeartRate ?? 'n/a'
     } bpm, total sleep ${formatDuration(result.today.totalSleepDuration ?? null)}.`,
-    `Reasons: ${result.reasons.join(', ')}.`,
+    `Attention: ${result.alertReasons.join(', ')}.`,
   ].join(' ');
 }
 
@@ -38,38 +77,96 @@ function buildDeliveryKey(result: MorningOptimizedResult): string {
     day: result.today.day,
     deliveryMode: result.deliveryMode,
     deliveryType: result.deliveryType ?? 'none',
-    breachedMetrics: [...(result.breachedMetrics ?? [])].sort(),
-    reasons: [...result.reasons].sort(),
+    alertMetrics: [...result.alertMetrics].sort(),
+    alertReasons: [...result.alertReasons].sort(),
+    skipReasons: [...result.skipReasons].sort(),
     baselineStatus: result.baselineStatus ?? 'none',
   });
 
   return createHash('sha256').update(payload).digest('hex').slice(0, 16);
 }
 
-export function evaluateMorningOptimized(input: MorningOptimizedInput): MorningOptimizedResult {
-  const deliveryMode: OptimizedWatcherDeliveryMode = input.deliveryMode ?? 'unusual-only';
-  const missingReasons: string[] = [];
-  if (input.today.sleepScore == null) {
-    missingReasons.push('missing_sleep_score');
-  }
-  if (input.today.readinessScore == null) {
-    missingReasons.push('missing_readiness_score');
-  }
-  if (input.today.temperatureDeviation == null) {
-    missingReasons.push('missing_temperature_deviation');
+function buildMetricSignal(
+  metric: BaselineMetricKey,
+  value: number | null | undefined,
+  snapshot: BaselineMetricSnapshot | undefined,
+  fixedReasons: string[]
+): { signal: MetricSignal; baselineAlertReason?: string } {
+  const signal: MetricSignal = {
+    metric,
+    value: value ?? null,
+    direction: 'not_evaluated',
+    severity: 'normal',
+    attention: false,
+  };
+
+  if (snapshot) {
+    signal.baselineMedian = snapshot.median;
+    signal.baselineLow = snapshot.low;
+    signal.baselineHigh = snapshot.high;
   }
 
-  if (missingReasons.length > 0) {
+  if (value == null) {
+    signal.direction = 'missing';
+    signal.severity = 'missing';
+    return { signal };
+  }
+
+  let baselineAlertReason: string | undefined;
+  if (snapshot) {
+    if (value < snapshot.low) {
+      signal.direction = 'below_baseline';
+      signal.severity = isLowerValueWorse(metric) ? 'worse' : 'better';
+      baselineAlertReason = signal.severity === 'worse' ? baselineLowReasonMap[metric] : undefined;
+    } else if (value > snapshot.high) {
+      signal.direction = 'above_baseline';
+      signal.severity = isHigherValueWorse(metric) ? 'worse' : 'better';
+      baselineAlertReason = signal.severity === 'worse' ? baselineHighReasonMap[metric] : undefined;
+    } else {
+      signal.direction = 'in_range';
+      signal.severity = 'normal';
+    }
+  }
+
+  if (fixedReasons.length > 0) {
+    signal.direction = 'outside_fixed_threshold';
+    signal.severity = 'worse';
+  }
+
+  signal.attention = signal.severity === 'worse';
+  return { signal, baselineAlertReason };
+}
+
+function uniqueMetrics(metrics: BaselineMetricKey[]): BaselineMetricKey[] {
+  return [...new Set(metrics)];
+}
+
+export function evaluateMorningOptimized(input: MorningOptimizedInput): MorningOptimizedResult {
+  const deliveryMode: OptimizedWatcherDeliveryMode = input.deliveryMode ?? 'unusual-only';
+  const skipReasons: string[] = [];
+  if (input.today.sleepScore == null) {
+    skipReasons.push('missing_sleep_score');
+  }
+  if (input.today.readinessScore == null) {
+    skipReasons.push('missing_readiness_score');
+  }
+  if (input.today.temperatureDeviation == null) {
+    skipReasons.push('missing_temperature_deviation');
+  }
+
+  if (skipReasons.length > 0) {
     return {
       dataReady: false,
-      ordinary: false,
+      shouldAlert: false,
       shouldSend: false,
       deliveryMode,
       baselineStatus: input.baselineStatus,
-      breachedMetrics: [],
+      alertMetrics: [],
       today: input.today,
       baseline: input.baseline,
-      reasons: missingReasons,
+      alertReasons: [],
+      skipReasons,
+      metricSignals: [],
     };
   }
 
@@ -84,59 +181,79 @@ export function evaluateMorningOptimized(input: MorningOptimizedInput): MorningO
     thresholds: input.thresholds,
   });
 
-  const baselineReasons: string[] = [];
-  const breachedMetrics = new Set<BaselineMetricKey>();
-  if (input.baseline) {
-    for (const metric of BASELINE_METRICS) {
-      const snapshot = input.baseline.metrics[metric];
-      const value = input.today[metric];
-      if (!snapshot || value == null) {
-        continue;
-      }
+  const fixedReasonsByMetric = new Map<BaselineMetricKey, string[]>();
+  for (const reason of fixedThreshold.reasons) {
+    const metric = fixedReasonMetricMap[reason];
+    if (!metric) {
+      continue;
+    }
+    fixedReasonsByMetric.set(metric, [...(fixedReasonsByMetric.get(metric) ?? []), reason]);
+  }
 
-      if (value < snapshot.low || value > snapshot.high) {
-        const reason = baselineReasonMap[metric];
-        baselineReasons.push(reason);
-        breachedMetrics.add(metric);
-      }
+  const metricSignals: MetricSignal[] = [];
+  const baselineAlertReasons: string[] = [];
+  const baselineAlertMetrics: BaselineMetricKey[] = [];
+
+  for (const metric of BASELINE_METRICS) {
+    const { signal, baselineAlertReason } = buildMetricSignal(
+      metric,
+      input.today[metric],
+      input.baseline?.metrics[metric],
+      fixedReasonsByMetric.get(metric) ?? []
+    );
+    metricSignals.push(signal);
+    if (baselineAlertReason) {
+      baselineAlertReasons.push(baselineAlertReason);
+      baselineAlertMetrics.push(metric);
     }
   }
 
-  if (
-    fixedThreshold.reasons.includes('sleep_below_threshold') ||
-    baselineReasons.includes('baseline_sleep_score_out_of_range')
-  ) {
-    breachedMetrics.add('sleepScore');
-  }
-  if (
-    fixedThreshold.reasons.includes('readiness_below_threshold') ||
-    baselineReasons.includes('baseline_readiness_score_out_of_range')
-  ) {
-    breachedMetrics.add('readinessScore');
-  }
-  if (
-    fixedThreshold.reasons.includes('temperature_outside_threshold') ||
-    baselineReasons.includes('baseline_temperature_deviation_out_of_range')
-  ) {
-    breachedMetrics.add('temperatureDeviation');
-  }
+  const fixedAlertMetrics = fixedThreshold.reasons
+    .map((reason) => fixedReasonMetricMap[reason])
+    .filter((metric): metric is BaselineMetricKey => Boolean(metric));
+  const primaryBaselineAlertMetrics = baselineAlertMetrics.filter((metric) =>
+    primaryAlertMetrics.has(metric)
+  );
+  const supportingBaselineAlertMetrics = baselineAlertMetrics.filter((metric) =>
+    supportingAlertMetrics.has(metric)
+  );
+  const supportingBaselineTriggered =
+    uniqueMetrics(supportingBaselineAlertMetrics).length >=
+    input.baselineConfig.supportingMetricAlertCount;
 
-  const baselineTriggered = breachedMetrics.size >= input.baselineConfig.breachMetricCount;
-  const unusual = fixedThreshold.reasons.length > 0 || baselineTriggered;
-  const shouldSendCandidate = unusual || deliveryMode === 'daily-when-ready';
-  const reasons = [...fixedThreshold.reasons, ...(baselineTriggered ? baselineReasons : [])];
+  const alertMetrics = uniqueMetrics([
+    ...fixedAlertMetrics,
+    ...primaryBaselineAlertMetrics,
+    ...(supportingBaselineTriggered ? supportingBaselineAlertMetrics : []),
+  ]);
+  const alertReasons = [
+    ...fixedThreshold.reasons,
+    ...baselineAlertReasons.filter((reason, index) => {
+      const metric = baselineAlertMetrics[index];
+      return primaryAlertMetrics.has(metric) || supportingBaselineTriggered;
+    }),
+  ];
+
+  const shouldAlert = alertReasons.length > 0;
+  const shouldSendCandidate = shouldAlert || deliveryMode === 'daily-when-ready';
 
   const result: MorningOptimizedResult = {
     dataReady: true,
-    ordinary: !unusual,
+    shouldAlert,
     shouldSend: shouldSendCandidate,
     deliveryMode,
-    deliveryType: unusual ? 'optimized-alert' : shouldSendCandidate ? 'morning-summary' : undefined,
+    deliveryType: shouldAlert
+      ? 'optimized-alert'
+      : shouldSendCandidate
+        ? 'morning-summary'
+        : undefined,
     baselineStatus: input.baselineStatus,
     today: input.today,
     baseline: input.baseline,
-    breachedMetrics: [...breachedMetrics],
-    reasons,
+    alertMetrics,
+    alertReasons,
+    skipReasons: [],
+    metricSignals,
   };
 
   if (result.deliveryType === 'optimized-alert') {
@@ -154,10 +271,9 @@ export function evaluateMorningOptimized(input: MorningOptimizedInput): MorningO
     return {
       ...result,
       shouldSend: false,
-      ordinary: false,
       alreadyDeliveredToday: true,
       deliveryKey: undefined,
-      reasons: ['already_delivered_today', ...result.reasons],
+      skipReasons: ['already_delivered_today', ...result.skipReasons],
     };
   }
 

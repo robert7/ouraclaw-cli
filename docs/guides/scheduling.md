@@ -11,7 +11,7 @@ messages by hand.
 
 The optimized watcher exists because Oura data does not always sync at the same time. Instead of guessing one perfect
 morning trigger, the watcher can check multiple times, for example every hour from `08:00` through `13:00`, and send
-the alert as soon as data is ready and the optimized routine decides something is out of the ordinary.
+the alert as soon as data is ready and the optimized routine decides attention is needed.
 
 That same watcher can also work well for users who want a morning message every day. Instead of sending at a fixed
 clock time before Oura has finished syncing, it can wait for real same-day data and then send once the data is ready.
@@ -32,7 +32,7 @@ The walkthrough:
 4. Asks for delivery language. Default is `English`.
 5. Asks which schedule types to enable.
 6. For the optimized watcher, asks whether it should:
-   - alert only on unusual days
+   - alert only when attention is needed
    - send every day once today's Oura data is ready
 7. Asks for timezone and schedule times.
 8. Creates or replaces the managed OpenClaw cron jobs.
@@ -48,13 +48,13 @@ you can keep the default `English` or choose another language such as `Slovak` w
 The optimized watcher runs `summary morning-optimized` repeatedly inside the configured window.
 
 - If `dataReady` is `false`, nothing is sent.
-- In `Alert only on unusual days` mode:
+- In `Alert only when attention is needed` mode:
   - `shouldSend: false` means nothing is sent.
   - `shouldSend: true` sends the optimized morning alert.
 - In `Send every day once today's Oura data is ready` mode:
   - `shouldSend: false` still means nothing is sent because data is not ready.
-  - `deliveryType: "optimized-alert"` sends the optimized morning alert when something is out of the ordinary.
-  - `deliveryType: "morning-summary"` sends a normal morning recap once today's data is ready and ordinary.
+  - `deliveryType: "optimized-alert"` sends the optimized morning alert when attention is needed.
+  - `deliveryType: "morning-summary"` sends a normal morning recap once today's data is ready without an alert.
 - After a successful send, the agent confirms delivery with
   `ouraclaw-cli summary morning-optimized-confirm --delivery-key <deliveryKey>`.
 
@@ -68,7 +68,7 @@ Use the optimized watcher when the most important thing is using real same-day O
 
 - it can notify as soon as Oura syncs
 - it avoids firing too early when today's data is still missing
-- it can still be configured for daily delivery, not only unusual-day alerts
+- it can still be configured for daily delivery, not only attention alerts
 
 ## Status and Disable
 

@@ -10,7 +10,7 @@ import {
   getStateDir,
   getStateFilePath,
 } from './config';
-import { LegacyOuraConfig, OuraCliState } from './types';
+import { BaselineConfig, LegacyOuraConfig, OuraCliState } from './types';
 
 export function defaultState(): OuraCliState {
   return {
@@ -23,7 +23,7 @@ export function defaultState(): OuraCliState {
     },
     baselineConfig: {
       lowerPercentile: DEFAULT_BASELINE_CONFIG.lowerPercentile,
-      breachMetricCount: DEFAULT_BASELINE_CONFIG.breachMetricCount,
+      supportingMetricAlertCount: DEFAULT_BASELINE_CONFIG.supportingMetricAlertCount,
     },
     schedule: {
       enabled: DEFAULT_SCHEDULE_CONFIG.enabled,
@@ -40,6 +40,20 @@ export function defaultState(): OuraCliState {
       optimizedWatcherIntervalMinutes: DEFAULT_SCHEDULE_CONFIG.optimizedWatcherIntervalMinutes,
     },
     deliveries: {},
+  };
+}
+
+function normalizeBaselineConfig(input: unknown, base: BaselineConfig): BaselineConfig {
+  const candidate = input as Partial<BaselineConfig> | null | undefined;
+  return {
+    lowerPercentile:
+      typeof candidate?.lowerPercentile === 'number'
+        ? candidate.lowerPercentile
+        : base.lowerPercentile,
+    supportingMetricAlertCount:
+      typeof candidate?.supportingMetricAlertCount === 'number'
+        ? candidate.supportingMetricAlertCount
+        : base.supportingMetricAlertCount,
   };
 }
 
@@ -91,7 +105,7 @@ function normalizeState(input: Partial<OuraCliState> | null): OuraCliState {
     schemaVersion: SCHEMA_VERSION,
     auth: { ...base.auth, ...(input.auth ?? {}) },
     thresholds: { ...base.thresholds, ...(input.thresholds ?? {}) },
-    baselineConfig: { ...base.baselineConfig, ...(input.baselineConfig ?? {}) },
+    baselineConfig: normalizeBaselineConfig(input.baselineConfig, base.baselineConfig),
     schedule: {
       ...base.schedule,
       ...(input.schedule ?? {}),

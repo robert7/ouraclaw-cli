@@ -61,7 +61,7 @@ Prints all config/state fields or a specific key. Useful keys include:
 - `thresholds.readinessScoreMin`
 - `thresholds.temperatureDeviationMax`
 - `baselineConfig.lowerPercentile`
-- `baselineConfig.breachMetricCount`
+- `baselineConfig.supportingMetricAlertCount`
 
 ### `ouraclaw-cli config set <key> <value>`
 
@@ -99,13 +99,13 @@ Builds the standard morning recap. Default output is JSON; `--text` prints the s
 
 ### `ouraclaw-cli summary morning-optimized [--delivery-mode unusual-only|daily-when-ready]`
 
-Returns JSON for the optimized alerting flow. The result includes `dataReady`, `ordinary`, `shouldSend`, optional
-`deliveryKey`, `deliveryMode`, optional `deliveryType`, `today`, optional `baseline`, optional `breachedMetrics`, and
-ordered `reasons`.
+Returns JSON for the optimized alerting flow. The result includes `dataReady`, `shouldAlert`, `shouldSend`, optional
+`deliveryKey`, `deliveryMode`, optional `deliveryType`, `today`, optional `baseline`, `alertMetrics`, `alertReasons`,
+`skipReasons`, and `metricSignals`.
 
-In `daily-when-ready` mode, an ordinary but ready day can still return `shouldSend: true` with
-`deliveryType: "morning-summary"` plus a nested `morningSummary` payload. `breachedMetrics` still remains part of the
-contract: it is `[]` on ordinary ready days and populated on unusual ready days.
+In `daily-when-ready` mode, a ready day without an alert can still return `shouldSend: true` with
+`deliveryType: "morning-summary"` plus a nested `morningSummary` payload. `metricSignals` remains populated so the
+sender can display all six metrics and mark worse-than-baseline values.
 
 ### `ouraclaw-cli summary morning-optimized-confirm --delivery-key <deliveryKey> [--delivery-mode unusual-only|daily-when-ready]`
 

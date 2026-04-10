@@ -22,7 +22,7 @@ export const DEFAULT_THRESHOLDS = {
 
 export const DEFAULT_BASELINE_CONFIG = {
   lowerPercentile: 25,
-  breachMetricCount: 1,
+  supportingMetricAlertCount: 2,
 } as const;
 
 export const DEFAULT_SCHEDULE_CONFIG = {

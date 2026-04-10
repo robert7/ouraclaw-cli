@@ -10,6 +10,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Reworked `summary morning-optimized` around attention signals: replaced `ordinary`, `breachedMetrics`, and generic
+  `reasons` with `shouldAlert`, `alertMetrics`, `alertReasons`, `skipReasons`, and per-metric `metricSignals`.
+- Changed optimized baseline evaluation to be direction-aware so better HRV or lower resting heart rate no longer
+  triggers an alert, while worse primary metrics can still alert by themselves.
+- Renamed baseline tuning from breached-metric counting to `baselineConfig.supportingMetricAlertCount`, defaulting to
+  two worse supporting metrics before the optimized baseline path alerts.
 - Upgraded runtime and tooling dependencies in phases, including `commander` 14, TypeScript 6, ESLint 10.2, Vitest 4.1.3, and related type/lint packages.
 - Raised the documented and enforced Node.js engine floor to 20 to match the supported runtime and CI.
 - Updated the TypeScript compiler configuration from legacy Node resolution to `Node16`/`node16` so typecheck stays compatible with TypeScript 6.

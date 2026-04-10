@@ -239,9 +239,10 @@ Interpret the JSON result as the source of truth:
 - If `dataReady` is `false`, do not send a message.
 - If `shouldSend` is `false`, do not send a message.
 - If `shouldSend` is `true` and `deliveryType` is `"optimized-alert"`, compose the final channel message from this
-  template in the delivery language using `today`, `baseline`, `baselineStatus`, `breachedMetrics`, and `reasons`.
-- If `shouldSend` is `true` and `deliveryType` is `"morning-summary"`, follow the Morning Summary Template instead,
-  using the nested `morningSummary` payload as the source of truth.
+  template in the delivery language using `today`, `baselineStatus`, `alertMetrics`, `alertReasons`, and
+  `metricSignals`.
+- If `shouldSend` is `true` and `deliveryType` is `"morning-summary"`, compose a daily ready message from this template
+  using `today`, `metricSignals`, and the nested `morningSummary` payload for extra context.
 - If `baselineStatus` is `"refresh_failed"`, trust the CLI decision anyway; it already fell back to fixed thresholds.
 - After the agent successfully delivers the alert, it must confirm delivery by running
   `ouraclaw-cli summary morning-optimized-confirm --delivery-key <deliveryKey>`.
@@ -251,13 +252,17 @@ Interpret the JSON result as the source of truth:
 
 Send only the formatted alert, with no extra preamble or commentary.
 
-Alert format rules:
+Format rules:
 
 - Start with a brief morning greeting and today's date in the delivery language.
-- Explain briefly that today's Oura data looks outside the usual morning range.
-- **Sleep**: include sleep score with label and total sleep context when available.
-- **Readiness**: include readiness score with label and temperature deviation.
-- If baseline reasoning contributed, mention it briefly in plain language using the provided `reasons`.
+- If `shouldAlert` is `true`, explain briefly that today's Oura data has one or more metrics that need attention.
+- If `shouldAlert` is `false`, use neutral daily-recap wording. Do not say the day needs attention.
+- Show all six optimized metrics when present: sleep score, readiness score, temperature deviation, HRV, lowest heart
+  rate, and total sleep duration.
+- Mark metrics where `metricSignals[].attention` is `true`. Use `⚠️` on WhatsApp, Telegram, Discord, Slack, and
+  WebChat/default. Use `ATTENTION` on plain-text channels.
+- Treat `severity: "better"` signals as positive or neutral context, not warnings.
+- If baseline or fixed-threshold reasoning contributed, mention it briefly in plain language using `alertReasons`.
 - Keep it concise, roughly 5-8 lines max.
 - Bold category labels and scores on channels that support bold. On plain text channels, do not use formatting markers.
 - Treat the CLI `message` field as fallback context only; do not send it verbatim when this template can be filled from
@@ -270,10 +275,11 @@ Good morning! Here's your Oura check for Monday, Jan 27.
 
 Today's data looks a bit outside your usual range.
 
-Sleep: 72 (Good)
-Readiness: 68 (Fair) | Body temp +0.2C
+Sleep: ⚠️ 72 (Good) | Total 6h 15m
+Readiness: ⚠️ 68 (Fair) | Body temp +0.2C
+HRV: 39 ms | Lowest HR: 52 bpm
 
-Recent baseline also looks worse than your usual HRV or sleep range.
+Attention: sleep and readiness are below your usual morning range.
 
 Worth taking today a bit gentler if you can.
 ```

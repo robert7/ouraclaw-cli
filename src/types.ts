@@ -118,7 +118,7 @@ export interface FixedThresholdConfig {
 
 export interface BaselineConfig {
   lowerPercentile: number;
-  breachMetricCount: number;
+  supportingMetricAlertCount: number;
 }
 
 export type OptimizedWatcherDeliveryMode = 'unusual-only' | 'daily-when-ready';
@@ -211,6 +211,27 @@ export interface FixedThresholdResult {
   reasons: string[];
 }
 
+export type MetricSignalDirection =
+  | 'in_range'
+  | 'below_baseline'
+  | 'above_baseline'
+  | 'outside_fixed_threshold'
+  | 'missing'
+  | 'not_evaluated';
+
+export type MetricSignalSeverity = 'normal' | 'better' | 'worse' | 'missing';
+
+export interface MetricSignal {
+  metric: BaselineMetricKey;
+  value: number | null;
+  baselineMedian?: number;
+  baselineLow?: number;
+  baselineHigh?: number;
+  direction: MetricSignalDirection;
+  severity: MetricSignalSeverity;
+  attention: boolean;
+}
+
 export interface MorningOptimizedToday {
   day: string;
   sleepScore: number | null;
@@ -234,7 +255,7 @@ export interface MorningOptimizedInput {
 
 export interface MorningOptimizedResult {
   dataReady: boolean;
-  ordinary: boolean;
+  shouldAlert: boolean;
   shouldSend: boolean;
   deliveryMode: OptimizedWatcherDeliveryMode;
   deliveryType?: 'optimized-alert' | 'morning-summary';
@@ -242,11 +263,13 @@ export interface MorningOptimizedResult {
   message?: string;
   deliveryKey?: string;
   alreadyDeliveredToday?: boolean;
-  breachedMetrics: BaselineMetricKey[];
+  alertMetrics: BaselineMetricKey[];
   today: MorningOptimizedToday;
   baseline?: BaselineSnapshot;
   morningSummary?: SummaryResult;
-  reasons: string[];
+  alertReasons: string[];
+  skipReasons: string[];
+  metricSignals: MetricSignal[];
 }
 
 export interface SummaryResult {

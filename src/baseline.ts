@@ -29,10 +29,13 @@ export function validateBaselineConfig(input: unknown): BaselineConfig {
   const candidate = input as Partial<BaselineConfig>;
   const config = {
     lowerPercentile: Number(candidate.lowerPercentile),
-    breachMetricCount: Number(candidate.breachMetricCount),
+    supportingMetricAlertCount: Number(candidate.supportingMetricAlertCount),
   };
 
-  if (!Number.isFinite(config.lowerPercentile) || !Number.isFinite(config.breachMetricCount)) {
+  if (
+    !Number.isFinite(config.lowerPercentile) ||
+    !Number.isFinite(config.supportingMetricAlertCount)
+  ) {
     throw new Error('Baseline configuration must be numeric.');
   }
 
@@ -40,14 +43,12 @@ export function validateBaselineConfig(input: unknown): BaselineConfig {
     throw new Error('baseline lower percentile must be greater than 0 and less than 50.');
   }
 
-  if (!Number.isInteger(config.breachMetricCount)) {
-    throw new Error('baseline breach metric count must be an integer.');
+  if (!Number.isInteger(config.supportingMetricAlertCount)) {
+    throw new Error('baseline supporting metric alert count must be an integer.');
   }
 
-  if (config.breachMetricCount < 1 || config.breachMetricCount > BASELINE_METRICS.length) {
-    throw new Error(
-      `baseline breach metric count must be between 1 and ${BASELINE_METRICS.length}.`
-    );
+  if (config.supportingMetricAlertCount < 1 || config.supportingMetricAlertCount > 3) {
+    throw new Error('baseline supporting metric alert count must be between 1 and 3.');
   }
 
   return config;
@@ -56,7 +57,7 @@ export function validateBaselineConfig(input: unknown): BaselineConfig {
 export function defaultBaselineConfig(): BaselineConfig {
   return {
     lowerPercentile: DEFAULT_BASELINE_CONFIG.lowerPercentile,
-    breachMetricCount: DEFAULT_BASELINE_CONFIG.breachMetricCount,
+    supportingMetricAlertCount: DEFAULT_BASELINE_CONFIG.supportingMetricAlertCount,
   };
 }
 

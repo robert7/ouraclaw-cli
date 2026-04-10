@@ -120,7 +120,7 @@ describe('cli actions', () => {
       schemaVersion: 1,
       auth: {},
       thresholds: { sleepScoreMin: 75, readinessScoreMin: 75, temperatureDeviationMax: 0.1 },
-      baselineConfig: { lowerPercentile: 25, breachMetricCount: 1 },
+      baselineConfig: { lowerPercentile: 25, supportingMetricAlertCount: 2 },
       deliveries: {},
     });
     fetchOuraData.mockResolvedValue({
@@ -167,7 +167,7 @@ describe('cli actions', () => {
       schemaVersion: 1,
       auth: {},
       thresholds: { sleepScoreMin: 75, readinessScoreMin: 75, temperatureDeviationMax: 0.1 },
-      baselineConfig: { lowerPercentile: 25, breachMetricCount: 1 },
+      baselineConfig: { lowerPercentile: 25, supportingMetricAlertCount: 2 },
       baseline: {
         updatedAt: '2026-03-01T00:00:00.000Z',
         mode: 'calendar-weeks',
@@ -182,7 +182,7 @@ describe('cli actions', () => {
       schemaVersion: 1,
       auth: {},
       thresholds: { sleepScoreMin: 75, readinessScoreMin: 75, temperatureDeviationMax: 0.1 },
-      baselineConfig: { lowerPercentile: 25, breachMetricCount: 1 },
+      baselineConfig: { lowerPercentile: 25, supportingMetricAlertCount: 2 },
       baseline: {
         mode: 'calendar-weeks',
         updatedAt: '2026-03-13T00:00:00.000Z',
@@ -201,9 +201,10 @@ describe('cli actions', () => {
     });
     evaluateMorningOptimized.mockReturnValue({
       shouldSend: false,
-      ordinary: true,
+      shouldAlert: false,
       dataReady: true,
-      reasons: [],
+      alertReasons: [],
+      skipReasons: [],
     });
 
     const { runMorningOptimized } = await import('../src/cli');
@@ -213,9 +214,10 @@ describe('cli actions', () => {
     expect(evaluateMorningOptimized).toHaveBeenCalled();
     expect(printJson).toHaveBeenCalledWith({
       shouldSend: false,
-      ordinary: true,
+      shouldAlert: false,
       dataReady: true,
-      reasons: [],
+      alertReasons: [],
+      skipReasons: [],
     });
   });
 
@@ -226,16 +228,17 @@ describe('cli actions', () => {
       schemaVersion: 1,
       auth: {},
       thresholds: { sleepScoreMin: 75, readinessScoreMin: 75, temperatureDeviationMax: 0.1 },
-      baselineConfig: { lowerPercentile: 25, breachMetricCount: 1 },
+      baselineConfig: { lowerPercentile: 25, supportingMetricAlertCount: 2 },
       baseline: undefined,
       deliveries: {},
     });
     isBaselineStale.mockReturnValue(false);
     evaluateMorningOptimized.mockReturnValue({
       shouldSend: true,
-      ordinary: false,
+      shouldAlert: true,
       dataReady: true,
-      reasons: ['sleep_below_threshold'],
+      alertReasons: ['sleep_below_threshold'],
+      skipReasons: [],
       deliveryKey: 'abc123',
       today: {
         day: '2026-03-13',
@@ -347,7 +350,7 @@ describe('cli actions', () => {
       schemaVersion: 1,
       auth: {},
       thresholds: { sleepScoreMin: 75, readinessScoreMin: 75, temperatureDeviationMax: 0.1 },
-      baselineConfig: { lowerPercentile: 25, breachMetricCount: 1 },
+      baselineConfig: { lowerPercentile: 25, supportingMetricAlertCount: 2 },
       schedule,
       deliveries: {},
     });
@@ -398,7 +401,7 @@ describe('cli actions', () => {
       schemaVersion: 1,
       auth: {},
       thresholds: { sleepScoreMin: 75, readinessScoreMin: 75, temperatureDeviationMax: 0.1 },
-      baselineConfig: { lowerPercentile: 25, breachMetricCount: 1 },
+      baselineConfig: { lowerPercentile: 25, supportingMetricAlertCount: 2 },
       schedule: {
         enabled: true,
         timezone: 'Europe/Bratislava',
@@ -454,7 +457,7 @@ describe('cli actions', () => {
       schemaVersion: 1,
       auth: {},
       thresholds: { sleepScoreMin: 75, readinessScoreMin: 75, temperatureDeviationMax: 0.1 },
-      baselineConfig: { lowerPercentile: 25, breachMetricCount: 1 },
+      baselineConfig: { lowerPercentile: 25, supportingMetricAlertCount: 2 },
       schedule: {
         enabled: false,
         timezone: 'UTC',
