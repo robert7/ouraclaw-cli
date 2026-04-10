@@ -71,6 +71,7 @@ Oura validates the redirect URI string literally, so it must be exactly `http://
 ```bash
 ouraclaw-cli fetch daily_sleep
 ouraclaw-cli fetch sleep --start-date 2026-03-12 --end-date 2026-03-13
+ouraclaw-cli auth login
 ouraclaw-cli auth status
 ouraclaw-cli baseline rebuild
 ouraclaw-cli summary morning --text

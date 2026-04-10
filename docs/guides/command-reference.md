@@ -31,6 +31,11 @@ optionally hand off into the OpenClaw scheduling walkthrough when `openclaw` is 
 Setup always configures the standalone CLI first. If OpenClaw is unavailable, it skips OpenClaw scheduled delivery,
 prints a short explanation before the JSON result, and returns `deliverySetup.reason: "openclaw_unavailable"`.
 
+### `ouraclaw-cli auth login`
+
+Runs the Oura OAuth login flow without changing thresholds, baseline tuning, or schedule settings. Use this when you
+only need to re-authenticate.
+
 ### `ouraclaw-cli auth status`
 
 Returns JSON describing whether auth is configured, whether the access token is expired, and whether refresh is

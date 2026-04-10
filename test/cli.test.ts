@@ -44,6 +44,13 @@ describe('cli', () => {
     expect(summarySubcommands).toContain('morning-optimized-confirm');
   });
 
+  test('registers the auth management commands', () => {
+    const authCommand = createProgram().commands.find((command) => command.name() === 'auth');
+    const authSubcommands = authCommand?.commands.map((command) => command.name()).sort();
+
+    expect(authSubcommands).toEqual(['login', 'refresh', 'status']);
+  });
+
   test('registers the schedule management commands', () => {
     const scheduleCommand = createProgram().commands.find(
       (command) => command.name() === 'schedule'

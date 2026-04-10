@@ -54,6 +54,7 @@ import {
   OuraCliState,
   OuraEndpoint,
   OuraRecord,
+  OuraTokenResponse,
   OptimizedWatcherDeliveryMode,
   ScheduleConfig,
   SleepPeriod,
@@ -66,6 +67,11 @@ interface MaskableReadline extends readline.Interface {
   output: NodeJS.WriteStream;
   _writeToOutput?: (text: string) => void;
   stdoutMuted?: boolean;
+}
+
+interface OuraCredentials {
+  clientId: string;
+  clientSecret: string;
 }
 
 function openExternalUrl(url: string): Promise<void> {
@@ -194,6 +200,16 @@ async function askForClientSecret(
   }
 }
 
+async function promptOuraCredentials(
+  rl: readline.Interface,
+  existing: OuraCliState
+): Promise<OuraCredentials> {
+  const clientId = await ask(rl, 'Oura Client ID', existing.auth.clientId);
+  const enteredSecret = await askForClientSecret(rl, Boolean(existing.auth.clientSecret));
+  const clientSecret = enteredSecret || existing.auth.clientSecret || '';
+  return { clientId, clientSecret };
+}
+
 async function confirm(
   rl: readline.Interface,
   question: string,
@@ -205,6 +221,36 @@ async function confirm(
     return defaultYes;
   }
   return answer === 'y' || answer === 'yes';
+}
+
+async function runOAuthBrowserFlow(
+  rl: readline.Interface,
+  credentials: OuraCredentials
+): Promise<OuraTokenResponse> {
+  const start = buildAuthorizeUrl({ clientId: credentials.clientId });
+  const browserPrompt = getBrowserOpenPrompt(isLikelyHeadlessSession());
+  const shouldOpenBrowser = await confirm(rl, browserPrompt.question, browserPrompt.defaultYes);
+
+  if (shouldOpenBrowser) {
+    printText(`Opening browser for OAuth on http://127.0.0.1:${CALLBACK_PORT}/callback ...`);
+    try {
+      await openExternalUrl(start.authorizeUrl);
+    } catch {
+      printText('Browser auto-open failed. Open this URL manually to continue OAuth:');
+      printText(start.authorizeUrl);
+    }
+  } else {
+    printText(`Open this URL manually to continue OAuth:\n${start.authorizeUrl}`);
+  }
+
+  const code = await captureOAuthCallback(start.state);
+  return exchangeCodeForTokens(
+    credentials.clientId,
+    credentials.clientSecret,
+    code,
+    start.codeVerifier,
+    start.redirectUri
+  );
 }
 
 async function select(
@@ -764,9 +810,25 @@ export async function runSetup(): Promise<void> {
   const rl = createPromptInterface();
 
   try {
-    const clientId = await ask(rl, 'Oura Client ID', existing.auth.clientId);
-    const enteredSecret = await askForClientSecret(rl, Boolean(existing.auth.clientSecret));
-    const clientSecret = enteredSecret || existing.auth.clientSecret || '';
+    const credentials = await promptOuraCredentials(rl, existing);
+    updateState({ auth: credentials });
+
+    const authStatus = getAuthStatus();
+    const shouldReauthenticate = shouldOfferReauthentication(authStatus)
+      ? await confirm(rl, 'Existing auth detected. Re-authenticate with Oura', false)
+      : true;
+
+    if (shouldReauthenticate) {
+      const tokenResponse = await runOAuthBrowserFlow(rl, credentials);
+      updateState({
+        auth: {
+          ...tokenResponseToAuthPatch(tokenResponse),
+          ...credentials,
+        },
+      });
+    } else {
+      printText('Keeping existing auth tokens and skipping OAuth re-authentication.');
+    }
 
     const defaults = existing.thresholds ?? defaultThresholds();
     const sleepScoreMin = Number(
@@ -811,62 +873,10 @@ export async function runSetup(): Promise<void> {
     });
 
     updateState({
-      auth: { clientId, clientSecret },
       thresholds,
       baselineConfig,
     });
-
-    const authStatus = getAuthStatus();
-    let tokenResponse;
-    const shouldReauthenticate = shouldOfferReauthentication(authStatus)
-      ? await confirm(rl, 'Existing auth detected. Re-authenticate with Oura', false)
-      : true;
-
-    if (shouldReauthenticate) {
-      const start = buildAuthorizeUrl({ clientId });
-      const browserPrompt = getBrowserOpenPrompt(isLikelyHeadlessSession());
-      const shouldOpenBrowser = await confirm(rl, browserPrompt.question, browserPrompt.defaultYes);
-
-      if (shouldOpenBrowser) {
-        printText(`Opening browser for OAuth on http://127.0.0.1:${CALLBACK_PORT}/callback ...`);
-        try {
-          await openExternalUrl(start.authorizeUrl);
-        } catch {
-          printText('Browser auto-open failed. Open this URL manually to continue OAuth:');
-          printText(start.authorizeUrl);
-        }
-      } else {
-        printText(`Open this URL manually to continue OAuth:\n${start.authorizeUrl}`);
-      }
-
-      const code = await captureOAuthCallback(start.state);
-      tokenResponse = await exchangeCodeForTokens(
-        clientId,
-        clientSecret,
-        code,
-        start.codeVerifier,
-        start.redirectUri
-      );
-    } else {
-      printText('Keeping existing auth tokens and skipping OAuth re-authentication.');
-    }
-
     const freshState = readState();
-    freshState.auth = tokenResponse
-      ? {
-          ...freshState.auth,
-          ...tokenResponseToAuthPatch(tokenResponse),
-          clientId,
-          clientSecret,
-        }
-      : {
-          ...freshState.auth,
-          clientId,
-          clientSecret,
-        };
-    freshState.thresholds = thresholds;
-    freshState.baselineConfig = baselineConfig;
-    writeState(freshState);
 
     const openclawAvailable = isOpenClawAvailable();
     let deliverySetup: DeliverySetupResult = {
@@ -899,6 +909,31 @@ export async function runSetup(): Promise<void> {
       thresholdSource: 'state',
       tokenExpiresAt: freshState.auth.tokenExpiresAt ?? null,
       deliverySetup,
+    });
+  } finally {
+    rl.close();
+  }
+}
+
+export async function runAuthLogin(): Promise<void> {
+  const existing = readState();
+  const rl = createPromptInterface();
+
+  try {
+    const credentials = await promptOuraCredentials(rl, existing);
+    updateState({ auth: credentials });
+    const tokenResponse = await runOAuthBrowserFlow(rl, credentials);
+    const nextState = updateState({
+      auth: {
+        ...tokenResponseToAuthPatch(tokenResponse),
+        ...credentials,
+      },
+    });
+
+    printJson({
+      ok: true,
+      authenticated: true,
+      tokenExpiresAt: nextState.auth.tokenExpiresAt ?? null,
     });
   } finally {
     rl.close();
@@ -1149,7 +1184,11 @@ export function createProgram(): Command {
     .description('Remove legacy OuraClaw plugin cron jobs and import useful defaults')
     .action(runScheduleMigrateFromOuraClawPlugin);
 
-  const auth = program.command('auth').description('Inspect and refresh auth state');
+  const auth = program.command('auth').description('Manage Oura auth state');
+  auth
+    .command('login')
+    .description('Run Oura OAuth without changing thresholds or schedules')
+    .action(runAuthLogin);
   auth.command('status').action(() => {
     printJson(getAuthStatus());
   });

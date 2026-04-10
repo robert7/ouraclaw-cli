@@ -3,11 +3,16 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 const printJson = vi.fn();
 const printText = vi.fn();
 const ensureValidAccessToken = vi.fn();
+const getAuthStatus = vi.fn();
+const refreshStoredAuth = vi.fn();
+const tokenResponseToAuthPatch = vi.fn();
 const fetchOuraData = vi.fn();
 const readState = vi.fn();
 const updateState = vi.fn();
+const writeState = vi.fn();
 const rebuildAutomaticBaseline = vi.fn();
 const rebuildManualBaseline = vi.fn();
+const validateBaselineConfig = vi.fn((config) => config);
 const isBaselineStale = vi.fn();
 const evaluateMorningOptimized = vi.fn();
 const buildMorningSummary = vi.fn();
@@ -17,6 +22,23 @@ const removeManagedScheduleJobs = vi.fn();
 const listOpenClawCronJobs = vi.fn();
 const inspectLegacySchedule = vi.fn();
 const removeLegacyOuraClawJobs = vi.fn();
+const readlineQuestion = vi.fn();
+const readlineClose = vi.fn();
+const createInterface = vi.fn(() => ({
+  question: readlineQuestion,
+  close: readlineClose,
+  input: { isTTY: false },
+  output: { write: vi.fn() },
+}));
+const buildAuthorizeUrl = vi.fn();
+const captureOAuthCallback = vi.fn();
+const exchangeCodeForTokens = vi.fn();
+
+vi.mock('node:readline/promises', () => ({
+  default: {
+    createInterface,
+  },
+}));
 
 vi.mock('../src/output', () => ({
   printJson,
@@ -25,9 +47,15 @@ vi.mock('../src/output', () => ({
 
 vi.mock('../src/auth', () => ({
   ensureValidAccessToken,
-  getAuthStatus: vi.fn(),
-  refreshStoredAuth: vi.fn(),
-  tokenResponseToAuthPatch: vi.fn(),
+  getAuthStatus,
+  refreshStoredAuth,
+  tokenResponseToAuthPatch,
+}));
+
+vi.mock('../src/oauth', () => ({
+  buildAuthorizeUrl,
+  captureOAuthCallback,
+  exchangeCodeForTokens,
 }));
 
 vi.mock('../src/oura-client', () => ({
@@ -38,7 +66,7 @@ vi.mock('../src/state-store', () => ({
   defaultState: vi.fn(),
   readState,
   updateState,
-  writeState: vi.fn(),
+  writeState,
 }));
 
 vi.mock('../src/baseline', () => ({
@@ -51,6 +79,7 @@ vi.mock('../src/baseline', () => ({
   isBaselineStale,
   rebuildAutomaticBaseline,
   rebuildManualBaseline,
+  validateBaselineConfig,
 }));
 
 vi.mock('../src/morning-optimized', () => ({
@@ -80,6 +109,24 @@ vi.mock('../src/summaries', () => ({
 describe('cli actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    tokenResponseToAuthPatch.mockReturnValue({
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      tokenExpiresAt: 1776000000000,
+    });
+    buildAuthorizeUrl.mockReturnValue({
+      authorizeUrl: 'https://cloud.ouraring.com/oauth/authorize',
+      state: 'oauth-state',
+      codeVerifier: '',
+      redirectUri: 'http://localhost:9876/callback',
+    });
+    captureOAuthCallback.mockResolvedValue('oauth-code');
+    exchangeCodeForTokens.mockResolvedValue({
+      access_token: 'access-token',
+      refresh_token: 'refresh-token',
+      expires_in: 3600,
+      token_type: 'Bearer',
+    });
   });
 
   test('resolves fetch date range defaults and single dates', async () => {
@@ -130,6 +177,109 @@ describe('cli actions', () => {
     ).toBe(
       'Setup complete. OpenClaw is not available, so OpenClaw scheduled delivery was skipped.\nThe CLI is fully usable without OpenClaw; run commands manually or connect another scheduler.'
     );
+  });
+
+  test('asks about setup re-authentication before threshold tuning', async () => {
+    readState.mockReturnValue({
+      schemaVersion: 1,
+      auth: {
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        tokenExpiresAt: 1776000000000,
+      },
+      thresholds: { sleepScoreMin: 75, readinessScoreMin: 75, temperatureDeviationMax: 0.1 },
+      baselineConfig: { lowerPercentile: 25, supportingMetricAlertCount: 2 },
+      deliveries: {},
+    });
+    getAuthStatus.mockReturnValue({
+      configured: true,
+      hasAccessToken: true,
+      hasRefreshToken: true,
+      expired: false,
+      tokenExpiresAt: 1776000000000,
+    });
+    readlineQuestion
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('n')
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('');
+
+    const { runSetup } = await import('../src/cli');
+    await runSetup();
+
+    const prompts = readlineQuestion.mock.calls.map(([prompt]) => String(prompt));
+    const reauthPromptIndex = prompts.findIndex((prompt) =>
+      prompt.includes('Existing auth detected. Re-authenticate with Oura')
+    );
+    const thresholdPromptIndex = prompts.findIndex((prompt) =>
+      prompt.includes('Minimum sleep score')
+    );
+
+    expect(reauthPromptIndex).toBeGreaterThanOrEqual(0);
+    expect(thresholdPromptIndex).toBeGreaterThanOrEqual(0);
+    expect(reauthPromptIndex).toBeLessThan(thresholdPromptIndex);
+    expect(exchangeCodeForTokens).not.toHaveBeenCalled();
+    expect(printJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: true,
+        deliverySetup: expect.objectContaining({
+          available: false,
+          reason: 'openclaw_unavailable',
+        }),
+      })
+    );
+  });
+
+  test('runs auth login without threshold or schedule prompts', async () => {
+    readState.mockReturnValue({
+      schemaVersion: 1,
+      auth: {
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+      },
+      thresholds: { sleepScoreMin: 75, readinessScoreMin: 75, temperatureDeviationMax: 0.1 },
+      baselineConfig: { lowerPercentile: 25, supportingMetricAlertCount: 2 },
+      deliveries: {},
+    });
+    updateState.mockReturnValue({
+      schemaVersion: 1,
+      auth: {
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        tokenExpiresAt: 1776000000000,
+      },
+      thresholds: { sleepScoreMin: 75, readinessScoreMin: 75, temperatureDeviationMax: 0.1 },
+      baselineConfig: { lowerPercentile: 25, supportingMetricAlertCount: 2 },
+      deliveries: {},
+    });
+    readlineQuestion.mockResolvedValueOnce('').mockResolvedValueOnce('').mockResolvedValueOnce('n');
+
+    const { runAuthLogin } = await import('../src/cli');
+    await runAuthLogin();
+
+    const prompts = readlineQuestion.mock.calls.map(([prompt]) => String(prompt));
+    expect(prompts.some((prompt) => prompt.includes('Minimum sleep score'))).toBe(false);
+    expect(prompts.some((prompt) => prompt.includes('OpenClaw scheduled delivery'))).toBe(false);
+    expect(exchangeCodeForTokens).toHaveBeenCalledWith(
+      'client-id',
+      'client-secret',
+      'oauth-code',
+      '',
+      'http://localhost:9876/callback'
+    );
+    expect(printJson).toHaveBeenCalledWith({
+      ok: true,
+      authenticated: true,
+      tokenExpiresAt: 1776000000000,
+    });
   });
 
   test('rebuilds manual baseline and prints it', async () => {
