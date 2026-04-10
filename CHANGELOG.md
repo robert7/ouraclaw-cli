@@ -7,9 +7,19 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Added Dependabot configuration for grouped npm and GitHub Actions updates.
+- Added `auth login` for re-authenticating with Oura without changing thresholds, baseline tuning, or schedules.
 
 ### Changed
 
+- Reworked `summary morning-optimized` around attention signals: replaced `ordinary`, `breachedMetrics`, and generic
+  `reasons` with `shouldAlert`, `alertMetrics`, `alertReasons`, `skipReasons`, and per-metric `metricSignals`.
+- Changed optimized baseline evaluation to be direction-aware so better HRV or lower resting heart rate no longer
+  triggers an alert, while worse primary metrics can still alert by themselves.
+- Renamed baseline tuning from breached-metric counting to `baselineConfig.supportingMetricAlertCount`, defaulting to
+  two worse supporting metrics before the optimized baseline path alerts.
+- Clarified setup output when OpenClaw is unavailable and added explicit percentile-band wording to the baseline
+  sensitivity prompt.
+- Moved setup's existing-auth reauthentication prompt before threshold and baseline tuning.
 - Upgraded runtime and tooling dependencies in phases, including `commander` 14, TypeScript 6, ESLint 10.2, Vitest 4.1.3, and related type/lint packages.
 - Raised the documented and enforced Node.js engine floor to 20 to match the supported runtime and CI.
 - Updated the TypeScript compiler configuration from legacy Node resolution to `Node16`/`node16` so typecheck stays compatible with TypeScript 6.

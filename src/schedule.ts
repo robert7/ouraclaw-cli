@@ -309,7 +309,7 @@ export function renderCronPrompt(
       : 'ouraclaw-cli summary morning-optimized-confirm --delivery-key <deliveryKey>';
   const modeInstruction =
     deliveryMode === 'daily-when-ready'
-      ? 'If dataReady is false or shouldSend is false, do nothing. If shouldSend is true and deliveryType is "optimized-alert", follow the Morning Optimized Template. If shouldSend is true and deliveryType is "morning-summary", follow the Morning Summary Template using the nested morningSummary payload.'
+      ? 'If dataReady is false or shouldSend is false, do nothing. If shouldSend is true, follow the Morning Optimized Template. For deliveryType "morning-summary", use the nested morningSummary payload only as extra context.'
       : 'If dataReady is false or shouldSend is false, do nothing. If shouldSend is true, follow the Morning Optimized Template.';
   return `Read ${SKILL_PATH}. Run ${command}. ${modeInstruction} Confirm successful delivery with ${confirmCommand} only after the send succeeds. ${destination} ${language}`;
 }

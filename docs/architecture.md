@@ -51,12 +51,14 @@ The stored baseline tracks these morning decision metrics when available:
 
 For each metric the snapshot stores a median plus ordinary low/high bounds. The ordinary band is configurable through a
 lower percentile and its mirrored upper percentile. With the default `25`, the ordinary band is the 25th to 75th
-percentile. A same-day value outside that band counts as a baseline breach for that metric.
+percentile. A same-day value outside that band becomes a direction-aware metric signal.
 
-The optimized morning routine combines fixed thresholds and baseline breaches. `sleepScore`, `readinessScore`, and
-`temperatureDeviation` count as breached when they violate either their fixed threshold or their baseline band.
-`averageHrv`, `lowestHeartRate`, and `totalSleepDuration` count as breached only through the baseline band. The number
-of unique breached metrics required for the baseline path is configurable and defaults to `1`.
+The optimized morning routine combines fixed thresholds and baseline attention signals. Fixed-threshold failures alert
+immediately. For baseline signals, `sleepScore`, `readinessScore`, and `totalSleepDuration` are primary metrics: a
+worse value on any one of them alerts by itself. `temperatureDeviation`, `averageHrv`, and `lowestHeartRate` are
+supporting metrics: they are marked for attention when worse, but require the configured supporting metric alert count
+before they trigger an optimized alert. Higher HRV and lower resting heart rate are treated as better baseline signals,
+not alert causes.
 
 Once an agent has successfully delivered an optimized morning alert, it must confirm delivery back to the CLI with the
 returned `deliveryKey`. The CLI stores that confirmation in local state and suppresses duplicate optimized-morning

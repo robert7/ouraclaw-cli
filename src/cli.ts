@@ -54,6 +54,7 @@ import {
   OuraCliState,
   OuraEndpoint,
   OuraRecord,
+  OuraTokenResponse,
   OptimizedWatcherDeliveryMode,
   ScheduleConfig,
   SleepPeriod,
@@ -66,6 +67,11 @@ interface MaskableReadline extends readline.Interface {
   output: NodeJS.WriteStream;
   _writeToOutput?: (text: string) => void;
   stdoutMuted?: boolean;
+}
+
+interface OuraCredentials {
+  clientId: string;
+  clientSecret: string;
 }
 
 function openExternalUrl(url: string): Promise<void> {
@@ -125,7 +131,14 @@ export function getBrowserOpenPrompt(headlessHint: boolean): {
 }
 
 export function getScheduleSetupHandoffPrompt(): string {
-  return 'Setup complete. Continue with scheduled delivery setup';
+  return 'Setup complete. Continue with OpenClaw scheduled delivery setup';
+}
+
+export function getBaselineSensitivityExplanation(): string {
+  return [
+    'Baseline sensitivity controls how wide your personal normal range is. 10 = fewer baseline signals, 25 = balanced default, 40 = more sensitive.',
+    'For example, lower percentile 25 means the normal band runs from the 25th to 75th percentile of your baseline data.',
+  ].join(' ');
 }
 
 function getSuggestedTimezone(): string {
@@ -187,6 +200,16 @@ async function askForClientSecret(
   }
 }
 
+async function promptOuraCredentials(
+  rl: readline.Interface,
+  existing: OuraCliState
+): Promise<OuraCredentials> {
+  const clientId = await ask(rl, 'Oura Client ID', existing.auth.clientId);
+  const enteredSecret = await askForClientSecret(rl, Boolean(existing.auth.clientSecret));
+  const clientSecret = enteredSecret || existing.auth.clientSecret || '';
+  return { clientId, clientSecret };
+}
+
 async function confirm(
   rl: readline.Interface,
   question: string,
@@ -198,6 +221,36 @@ async function confirm(
     return defaultYes;
   }
   return answer === 'y' || answer === 'yes';
+}
+
+async function runOAuthBrowserFlow(
+  rl: readline.Interface,
+  credentials: OuraCredentials
+): Promise<OuraTokenResponse> {
+  const start = buildAuthorizeUrl({ clientId: credentials.clientId });
+  const browserPrompt = getBrowserOpenPrompt(isLikelyHeadlessSession());
+  const shouldOpenBrowser = await confirm(rl, browserPrompt.question, browserPrompt.defaultYes);
+
+  if (shouldOpenBrowser) {
+    printText(`Opening browser for OAuth on http://127.0.0.1:${CALLBACK_PORT}/callback ...`);
+    try {
+      await openExternalUrl(start.authorizeUrl);
+    } catch {
+      printText('Browser auto-open failed. Open this URL manually to continue OAuth:');
+      printText(start.authorizeUrl);
+    }
+  } else {
+    printText(`Open this URL manually to continue OAuth:\n${start.authorizeUrl}`);
+  }
+
+  const code = await captureOAuthCallback(start.state);
+  return exchangeCodeForTokens(
+    credentials.clientId,
+    credentials.clientSecret,
+    code,
+    start.codeVerifier,
+    start.redirectUri
+  );
 }
 
 async function select(
@@ -299,7 +352,7 @@ async function promptOptimizedWatcherDeliveryMode(
   const choice = await select(
     rl,
     'Optimized watcher delivery mode:',
-    ['Alert only on unusual days', "Send every day once today's Oura data is ready"],
+    ['Alert only when attention is needed', "Send every day once today's Oura data is ready"],
     defaultValue === 'daily-when-ready' ? 1 : 0
   );
 
@@ -355,6 +408,32 @@ interface ScheduleSetupResult {
   schedule: ScheduleConfig;
   legacyDetected: boolean;
   removedLegacyJobIds: string[];
+}
+
+export interface DeliverySetupResult {
+  attempted: boolean;
+  configured: boolean;
+  provider: 'openclaw';
+  available: boolean;
+  reason?: 'openclaw_unavailable' | 'skipped_by_user';
+  schedule?: ScheduleConfig;
+  legacyDetected?: boolean;
+  removedLegacyJobIds?: string[];
+}
+
+export function buildSetupCompletionMessage(deliverySetup: DeliverySetupResult): string {
+  if (!deliverySetup.available) {
+    return [
+      'Setup complete. OpenClaw is not available, so OpenClaw scheduled delivery was skipped.',
+      'The CLI is fully usable without OpenClaw; run commands manually or connect another scheduler.',
+    ].join('\n');
+  }
+
+  if (!deliverySetup.configured) {
+    return 'Setup complete. OpenClaw scheduled delivery was skipped; the CLI is fully usable manually.';
+  }
+
+  return 'Setup complete. OpenClaw scheduled delivery is configured.';
 }
 
 async function runScheduleSetupFlow(
@@ -425,7 +504,7 @@ async function runScheduleSetupFlow(
   let optimizedWatcherDeliveryMode = currentSchedule.optimizedWatcherDeliveryMode;
   if (optimizedWatcherEnabled) {
     printText(
-      'Optimized watcher checks repeatedly inside a morning window until Oura data is ready or nothing unusual shows up.'
+      'Optimized watcher checks repeatedly inside a morning window until Oura data is ready or no attention-worthy signal shows up.'
     );
     printText(
       'If you still want a morning message every day, this mode can wait for real same-day sync and then send once the data is ready.'
@@ -510,8 +589,8 @@ export function setConfigValue(state: OuraCliState, key: string, value: string):
     state.thresholds.temperatureDeviationMax = Number(value);
   } else if (key === 'baselineConfig.lowerPercentile') {
     state.baselineConfig.lowerPercentile = Number(value);
-  } else if (key === 'baselineConfig.breachMetricCount') {
-    state.baselineConfig.breachMetricCount = Number(value);
+  } else if (key === 'baselineConfig.supportingMetricAlertCount') {
+    state.baselineConfig.supportingMetricAlertCount = Number(value);
   } else if (key === 'auth.clientId') {
     state.auth.clientId = value;
   } else if (key === 'auth.clientSecret') {
@@ -731,9 +810,25 @@ export async function runSetup(): Promise<void> {
   const rl = createPromptInterface();
 
   try {
-    const clientId = await ask(rl, 'Oura Client ID', existing.auth.clientId);
-    const enteredSecret = await askForClientSecret(rl, Boolean(existing.auth.clientSecret));
-    const clientSecret = enteredSecret || existing.auth.clientSecret || '';
+    const credentials = await promptOuraCredentials(rl, existing);
+    updateState({ auth: credentials });
+
+    const authStatus = getAuthStatus();
+    const shouldReauthenticate = shouldOfferReauthentication(authStatus)
+      ? await confirm(rl, 'Existing auth detected. Re-authenticate with Oura', false)
+      : true;
+
+    if (shouldReauthenticate) {
+      const tokenResponse = await runOAuthBrowserFlow(rl, credentials);
+      updateState({
+        auth: {
+          ...tokenResponseToAuthPatch(tokenResponse),
+          ...credentials,
+        },
+      });
+    } else {
+      printText('Keeping existing auth tokens and skipping OAuth re-authentication.');
+    }
 
     const defaults = existing.thresholds ?? defaultThresholds();
     const sleepScoreMin = Number(
@@ -759,100 +854,86 @@ export async function runSetup(): Promise<void> {
     });
 
     const baselineDefaults: BaselineConfig = existing.baselineConfig ?? defaultBaselineConfig();
-    printText(
-      'Baseline sensitivity controls how wide your personal "ordinary" range is. 10 = fewer alerts, 25 = balanced default, 40 = more alerts.'
-    );
+    printText(getBaselineSensitivityExplanation());
     const lowerPercentile = Number(
       (await ask(rl, 'Baseline lower percentile', String(baselineDefaults.lowerPercentile))) ||
         baselineDefaults.lowerPercentile
     );
-    const breachMetricCount = Number(
-      (await ask(rl, 'Baseline breach metric count', String(baselineDefaults.breachMetricCount))) ||
-        baselineDefaults.breachMetricCount
+    const supportingMetricAlertCount = Number(
+      (await ask(
+        rl,
+        'Supporting baseline metrics needed for an alert',
+        String(baselineDefaults.supportingMetricAlertCount)
+      )) || baselineDefaults.supportingMetricAlertCount
     );
 
     const baselineConfig = validateBaselineConfig({
       lowerPercentile,
-      breachMetricCount,
+      supportingMetricAlertCount,
     });
 
     updateState({
-      auth: { clientId, clientSecret },
       thresholds,
       baselineConfig,
     });
-
-    const authStatus = getAuthStatus();
-    let tokenResponse;
-    const shouldReauthenticate = shouldOfferReauthentication(authStatus)
-      ? await confirm(rl, 'Existing auth detected. Re-authenticate with Oura', false)
-      : true;
-
-    if (shouldReauthenticate) {
-      const start = buildAuthorizeUrl({ clientId });
-      const browserPrompt = getBrowserOpenPrompt(isLikelyHeadlessSession());
-      const shouldOpenBrowser = await confirm(rl, browserPrompt.question, browserPrompt.defaultYes);
-
-      if (shouldOpenBrowser) {
-        printText(`Opening browser for OAuth on http://127.0.0.1:${CALLBACK_PORT}/callback ...`);
-        try {
-          await openExternalUrl(start.authorizeUrl);
-        } catch {
-          printText('Browser auto-open failed. Open this URL manually to continue OAuth:');
-          printText(start.authorizeUrl);
-        }
-      } else {
-        printText(`Open this URL manually to continue OAuth:\n${start.authorizeUrl}`);
-      }
-
-      const code = await captureOAuthCallback(start.state);
-      tokenResponse = await exchangeCodeForTokens(
-        clientId,
-        clientSecret,
-        code,
-        start.codeVerifier,
-        start.redirectUri
-      );
-    } else {
-      printText('Keeping existing auth tokens and skipping OAuth re-authentication.');
-    }
-
     const freshState = readState();
-    freshState.auth = tokenResponse
-      ? {
-          ...freshState.auth,
-          ...tokenResponseToAuthPatch(tokenResponse),
-          clientId,
-          clientSecret,
-        }
-      : {
-          ...freshState.auth,
-          clientId,
-          clientSecret,
-        };
-    freshState.thresholds = thresholds;
-    freshState.baselineConfig = baselineConfig;
-    writeState(freshState);
 
-    let scheduleResult: ScheduleSetupResult | undefined;
-    if (isOpenClawAvailable()) {
+    const openclawAvailable = isOpenClawAvailable();
+    let deliverySetup: DeliverySetupResult = {
+      attempted: false,
+      configured: false,
+      provider: 'openclaw',
+      available: openclawAvailable,
+      reason: openclawAvailable ? 'skipped_by_user' : 'openclaw_unavailable',
+    };
+    if (openclawAvailable) {
       const shouldConfigureSchedule = await confirm(rl, getScheduleSetupHandoffPrompt(), true);
       if (shouldConfigureSchedule) {
-        scheduleResult = await runScheduleSetupFlow(rl, false);
+        const scheduleResult = await runScheduleSetupFlow(rl, false);
+        deliverySetup = {
+          attempted: true,
+          configured: scheduleResult.configured,
+          provider: 'openclaw',
+          available: scheduleResult.openclawAvailable,
+          schedule: scheduleResult.schedule,
+          legacyDetected: scheduleResult.legacyDetected,
+          removedLegacyJobIds: scheduleResult.removedLegacyJobIds,
+        };
       }
     }
 
+    printText(buildSetupCompletionMessage(deliverySetup));
     printJson({
       ok: true,
       configured: true,
       thresholdSource: 'state',
       tokenExpiresAt: freshState.auth.tokenExpiresAt ?? null,
-      schedule:
-        scheduleResult ??
-        ({
-          configured: false,
-          openclawAvailable: isOpenClawAvailable(),
-        } satisfies Partial<ScheduleSetupResult>),
+      deliverySetup,
+    });
+  } finally {
+    rl.close();
+  }
+}
+
+export async function runAuthLogin(): Promise<void> {
+  const existing = readState();
+  const rl = createPromptInterface();
+
+  try {
+    const credentials = await promptOuraCredentials(rl, existing);
+    updateState({ auth: credentials });
+    const tokenResponse = await runOAuthBrowserFlow(rl, credentials);
+    const nextState = updateState({
+      auth: {
+        ...tokenResponseToAuthPatch(tokenResponse),
+        ...credentials,
+      },
+    });
+
+    printJson({
+      ok: true,
+      authenticated: true,
+      tokenExpiresAt: nextState.auth.tokenExpiresAt ?? null,
     });
   } finally {
     rl.close();
@@ -1103,7 +1184,11 @@ export function createProgram(): Command {
     .description('Remove legacy OuraClaw plugin cron jobs and import useful defaults')
     .action(runScheduleMigrateFromOuraClawPlugin);
 
-  const auth = program.command('auth').description('Inspect and refresh auth state');
+  const auth = program.command('auth').description('Manage Oura auth state');
+  auth
+    .command('login')
+    .description('Run Oura OAuth without changing thresholds or schedules')
+    .action(runAuthLogin);
   auth.command('status').action(() => {
     printJson(getAuthStatus());
   });

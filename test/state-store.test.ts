@@ -19,11 +19,33 @@ describe('state-store', () => {
     expect(state.schemaVersion).toBe(1);
     expect(state.thresholds.sleepScoreMin).toBe(75);
     expect(state.baselineConfig.lowerPercentile).toBe(25);
+    expect(state.baselineConfig.supportingMetricAlertCount).toBe(2);
     expect(state.schedule.deliveryLanguage).toBe('English');
     expect(state.schedule.optimizedWatcherDeliveryMode).toBe('unusual-only');
     expect(state.schedule.optimizedWatcherIntervalMinutes).toBe(60);
     expect(state.deliveries).toEqual({});
     expect(state.auth.accessToken).toBeUndefined();
+  });
+
+  test('normalizes legacy baseline breach config to the new supporting metric default', () => {
+    const home = makeTempDir();
+    process.env.OURACLAW_CLI_HOME = home;
+    fs.mkdirSync(home, { recursive: true });
+    fs.writeFileSync(
+      path.join(home, 'ouraclaw-cli.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        baselineConfig: {
+          lowerPercentile: 10,
+          breachMetricCount: 1,
+        },
+      })
+    );
+
+    const state = readState();
+
+    expect(state.baselineConfig.lowerPercentile).toBe(10);
+    expect(state.baselineConfig.supportingMetricAlertCount).toBe(2);
   });
 
   test('migrates legacy auth config on first read', () => {
@@ -61,7 +83,7 @@ describe('state-store', () => {
       },
       baselineConfig: {
         lowerPercentile: 25,
-        breachMetricCount: 1,
+        supportingMetricAlertCount: 2,
       },
       schedule: {
         enabled: false,
