@@ -17,7 +17,13 @@ const isBaselineStale = vi.fn();
 const evaluateMorningOptimized = vi.fn();
 const buildMorningSummary = vi.fn();
 const buildEveningSummary = vi.fn();
+const createOrReplaceScheduleJobs = vi.fn();
+const getConfiguredChannelTargets = vi.fn(() => []);
+const getLegacyScheduleDefaults = vi.fn(() => undefined);
 const getScheduleStatus = vi.fn();
+const isOpenClawAvailable = vi.fn(() => false);
+const isValidTimeOfDay = vi.fn(() => true);
+const isValidTimezone = vi.fn(() => true);
 const removeManagedScheduleJobs = vi.fn();
 const listOpenClawCronJobs = vi.fn();
 const inspectLegacySchedule = vi.fn();
@@ -87,14 +93,14 @@ vi.mock('../src/morning-optimized', () => ({
 }));
 
 vi.mock('../src/schedule', () => ({
-  createOrReplaceScheduleJobs: vi.fn(),
-  getConfiguredChannelTargets: vi.fn(() => []),
-  getLegacyScheduleDefaults: vi.fn(() => undefined),
+  createOrReplaceScheduleJobs,
+  getConfiguredChannelTargets,
+  getLegacyScheduleDefaults,
   getScheduleStatus,
   inspectLegacySchedule,
-  isOpenClawAvailable: vi.fn(() => false),
-  isValidTimeOfDay: vi.fn(() => true),
-  isValidTimezone: vi.fn(() => true),
+  isOpenClawAvailable,
+  isValidTimeOfDay,
+  isValidTimezone,
   listOpenClawCronJobs,
   removeLegacyOuraClawJobs,
   removeManagedScheduleJobs,
@@ -109,6 +115,18 @@ vi.mock('../src/summaries', () => ({
 describe('cli actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    createOrReplaceScheduleJobs.mockImplementation((schedule) => schedule);
+    getConfiguredChannelTargets.mockReturnValue([]);
+    getLegacyScheduleDefaults.mockReturnValue(undefined);
+    inspectLegacySchedule.mockReturnValue({
+      legacyConfigPath: '/tmp/legacy.json',
+      legacyConfig: undefined,
+      legacyDefaults: undefined,
+      legacyJobs: [],
+    });
+    isOpenClawAvailable.mockReturnValue(false);
+    isValidTimeOfDay.mockReturnValue(true);
+    isValidTimezone.mockReturnValue(true);
     tokenResponseToAuthPatch.mockReturnValue({
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
@@ -767,5 +785,62 @@ describe('cli actions', () => {
         target: '+421',
       }),
     });
+  });
+
+  test('schedule setup lets a known discord channel use a custom target id', async () => {
+    readState.mockReturnValue({
+      schemaVersion: 1,
+      auth: {},
+      thresholds: { sleepScoreMin: 75, readinessScoreMin: 75, temperatureDeviationMax: 0.1 },
+      baselineConfig: { lowerPercentile: 25, supportingMetricAlertCount: 2 },
+      schedule: {
+        enabled: true,
+        timezone: 'Europe/Vienna',
+        deliveryLanguage: 'Slovak',
+        channel: 'discord',
+        target: '809342603711348768',
+        morningEnabled: true,
+        morningTime: '07:30',
+        eveningEnabled: false,
+        eveningTime: '21:00',
+        optimizedWatcherEnabled: false,
+        optimizedWatcherDeliveryMode: 'unusual-only',
+        optimizedWatcherStart: '08:00',
+        optimizedWatcherEnd: '13:00',
+        optimizedWatcherIntervalMinutes: 60,
+      },
+      deliveries: {},
+    });
+    isOpenClawAvailable.mockReturnValue(true);
+    getConfiguredChannelTargets.mockReturnValue([
+      { label: 'whatsapp -> +421944249199', channel: 'whatsapp', target: '+421944249199' },
+      { label: 'discord -> 809342603711348768', channel: 'discord', target: '809342603711348768' },
+    ]);
+    readlineQuestion
+      .mockResolvedValueOnce('2')
+      .mockResolvedValueOnce('2')
+      .mockResolvedValueOnce('1482716547729326262')
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('');
+
+    const { runScheduleSetup } = await import('../src/cli');
+    await runScheduleSetup();
+
+    expect(createOrReplaceScheduleJobs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: 'discord',
+        target: '1482716547729326262',
+        deliveryLanguage: 'Slovak',
+        timezone: 'Europe/Vienna',
+      })
+    );
+    expect(printText).toHaveBeenCalledWith('Choose the delivery channel for scheduled messages:');
+    expect(printText).toHaveBeenCalledWith(
+      'Choose the delivery target for scheduled messages on discord:'
+    );
   });
 });

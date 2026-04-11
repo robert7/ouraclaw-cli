@@ -369,25 +369,56 @@ async function promptChannelTarget(
 ): Promise<{ channel: string; target: string }> {
   const existingLabel =
     defaults.channel && defaults.target ? `${defaults.channel} -> ${defaults.target}` : undefined;
-  const defaultIndex = configuredTargets.findIndex(
-    (entry) => entry.channel === defaults.channel && entry.target === defaults.target
-  );
+  const channels = [...new Set(configuredTargets.map((entry) => entry.channel))];
+  const manualChannelChoice = 'Enter a different channel manually';
 
-  if (configuredTargets.length > 0) {
-    const choice = await select(
+  if (channels.length > 0) {
+    const defaultChannelIndex = defaults.channel ? channels.indexOf(defaults.channel) : -1;
+    const channelChoice = await select(
       rl,
-      'Choose the delivery destination for scheduled messages:',
-      [...configuredTargets.map((entry) => entry.label), 'Manual entry'],
-      defaultIndex >= 0 ? defaultIndex : configuredTargets.length
+      'Choose the delivery channel for scheduled messages:',
+      [...channels, manualChannelChoice],
+      defaultChannelIndex >= 0 ? defaultChannelIndex : channels.length
     );
-    if (choice !== 'Manual entry') {
-      const selected = configuredTargets.find((entry) => entry.label === choice);
-      if (selected) {
+
+    if (channelChoice !== manualChannelChoice) {
+      const knownTargets = configuredTargets
+        .filter((entry) => entry.channel === channelChoice)
+        .map((entry) => entry.target);
+      const manualTargetChoice = `Enter a different ${channelChoice} target manually`;
+      const defaultTargetIndex =
+        defaults.channel === channelChoice && defaults.target
+          ? knownTargets.indexOf(defaults.target)
+          : -1;
+
+      const targetChoice = await select(
+        rl,
+        `Choose the delivery target for scheduled messages on ${channelChoice}:`,
+        [...knownTargets, manualTargetChoice],
+        defaultTargetIndex >= 0 ? defaultTargetIndex : knownTargets.length
+      );
+
+      if (targetChoice !== manualTargetChoice) {
         return {
-          channel: selected.channel,
-          target: selected.target,
+          channel: channelChoice,
+          target: targetChoice,
         };
       }
+
+      const target = await ask(
+        rl,
+        'Delivery target',
+        defaults.channel === channelChoice ? defaults.target : undefined
+      );
+      if (!target) {
+        throw new Error(
+          `Scheduled delivery requires both channel and target${existingLabel ? `; current default is ${existingLabel}` : ''}.`
+        );
+      }
+      return {
+        channel: channelChoice,
+        target,
+      };
     }
   } else {
     printText('No configured OpenClaw chat targets were discovered, so manual entry time it is.');

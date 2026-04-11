@@ -13,6 +13,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Changed `schedule setup` to ask for the delivery channel first and let known channels like Discord keep their saved
+  target as a shortcut while still accepting a manually entered target override.
 - Reworked `summary morning-optimized` around attention signals: replaced `ordinary`, `breachedMetrics`, and generic
   `reasons` with `shouldAlert`, `alertMetrics`, `alertReasons`, `skipReasons`, and per-metric `metricSignals`.
 - Changed optimized baseline evaluation to be direction-aware so better HRV or lower resting heart rate no longer

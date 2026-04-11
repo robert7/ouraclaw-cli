@@ -149,6 +149,9 @@ Run:
 ouraclaw-cli schedule setup
 ```
 
+The scheduler now asks for a channel first, then lets you pick a known target or override it manually. That keeps
+saved defaults convenient without blocking cases like a custom Discord channel ID.
+
 Existing OuraClaw plugin users can also remove old cron jobs and import useful defaults with:
 
 ```bash

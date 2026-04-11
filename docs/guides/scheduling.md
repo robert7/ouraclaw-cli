@@ -28,15 +28,18 @@ The walkthrough:
 
 1. Detects whether `openclaw` is installed.
 2. Detects legacy OuraClaw plugin config and old cron jobs.
-3. Loads configured OpenClaw chat targets when possible so you can pick a known channel/target quickly.
-4. Asks for delivery language. Default is `English`.
-5. Asks which schedule types to enable.
-6. For the optimized watcher, asks whether it should:
+3. Loads configured OpenClaw chat targets when possible so you can pick a known channel quickly.
+4. If the chosen channel already has known targets, offers them as shortcuts and still lets you enter a different
+   target manually. This is useful for channels like Discord where you may want a different channel ID than the saved
+   default.
+5. Asks for delivery language. Default is `English`.
+6. Asks which schedule types to enable.
+7. For the optimized watcher, asks whether it should:
    - alert only when attention is needed
    - send every day once today's Oura data is ready
-7. Asks for timezone and schedule times.
-8. Creates or replaces the managed OpenClaw cron jobs.
-9. Optionally removes old OuraClaw plugin cron jobs during the same walkthrough.
+8. Asks for timezone and schedule times.
+9. Creates or replaces the managed OpenClaw cron jobs.
+10. Optionally removes old OuraClaw plugin cron jobs during the same walkthrough.
 
 ## Delivery Language
 
