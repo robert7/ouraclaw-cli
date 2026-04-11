@@ -137,17 +137,14 @@ export interface ScheduleConfig {
   channel?: string;
   target?: string;
   morningEnabled: boolean;
-  morningTime: string;
+  morningDeliveryMode: OptimizedWatcherDeliveryMode;
+  morningStart: string;
+  morningEnd: string;
+  morningIntervalMinutes: number;
   eveningEnabled: boolean;
   eveningTime: string;
-  optimizedWatcherEnabled: boolean;
-  optimizedWatcherDeliveryMode: OptimizedWatcherDeliveryMode;
-  optimizedWatcherStart: string;
-  optimizedWatcherEnd: string;
-  optimizedWatcherIntervalMinutes: number;
-  morningCronJobId?: string;
+  morningCronJobIds?: string[];
   eveningCronJobId?: string;
-  optimizedWatcherCronJobIds?: string[];
 }
 
 export interface BaselineSnapshot {
@@ -167,7 +164,7 @@ export interface OuraCliState {
   schedule: ScheduleConfig;
   baseline?: BaselineSnapshot;
   deliveries?: {
-    morningOptimized?: {
+    morning?: {
       lastDeliveredDay: string;
       lastDeliveredAt: string;
       lastDeliveryKey: string;
@@ -233,7 +230,7 @@ export interface MetricSignal {
   reasons: string[];
 }
 
-export interface MorningOptimizedToday {
+export interface MorningToday {
   day: string;
   sleepScore: number | null;
   readinessScore: number | null;
@@ -243,8 +240,8 @@ export interface MorningOptimizedToday {
   totalSleepDuration?: number | null;
 }
 
-export interface MorningOptimizedInput {
-  today: MorningOptimizedToday;
+export interface MorningInput {
+  today: MorningToday;
   thresholds: FixedThresholdConfig;
   baselineConfig: BaselineConfig;
   deliveryMode?: OptimizedWatcherDeliveryMode;
@@ -254,20 +251,18 @@ export interface MorningOptimizedInput {
   applyDeliverySuppression?: boolean;
 }
 
-export interface MorningOptimizedResult {
+export interface MorningResult {
   dataReady: boolean;
   shouldAlert: boolean;
   shouldSend: boolean;
   deliveryMode: OptimizedWatcherDeliveryMode;
-  deliveryType?: 'optimized-alert' | 'morning-summary';
   baselineStatus?: 'ready' | 'missing' | 'stale' | 'refresh_failed';
   message?: string;
   deliveryKey?: string;
   alreadyDeliveredToday?: boolean;
   alertMetrics: BaselineMetricKey[];
-  today: MorningOptimizedToday;
+  today: MorningToday;
   baseline?: BaselineSnapshot;
-  morningSummary?: SummaryResult;
   alertReasons: string[];
   skipReasons: string[];
   metricSignals: MetricSignal[];

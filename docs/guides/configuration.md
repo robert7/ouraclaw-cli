@@ -35,7 +35,7 @@ The baseline snapshot stores metadata about its source window plus per-metric bo
 - `lowest_heart_rate`
 - `total_sleep_duration`
 
-Automatic baseline refresh is attempted only by `summary morning-optimized`.
+Automatic baseline refresh is attempted only by `summary morning`.
 
 ## Scheduling
 
@@ -44,18 +44,17 @@ Schedule state is also stored in the local CLI JSON file. The scheduler section 
 - delivery channel and target
 - delivery language, default `English`
 - timezone
-- enabled status for the morning recap, evening recap, and optimized watcher
-- configured times for fixed schedules
-- optimized watcher delivery mode:
+- enabled status for the morning summary watcher and evening recap
+- morning summary delivery mode:
   - `unusual-only`
   - `daily-when-ready`
-- optimized watcher start time, end time, and interval minutes
+- morning summary start time, end time, and interval minutes
 - stored OpenClaw cron job IDs
 
 Use `ouraclaw-cli schedule setup` to configure or update these values. `schedule status` prints the current state plus
 whether matching OpenClaw cron jobs still exist.
 
-The optimized watcher can store multiple cron job IDs when the requested window and interval need more than one cron
+The morning summary watcher can store multiple cron job IDs when the requested window and interval need more than one cron
 expression to stay inside the requested time range cleanly.
 
 ## Migration

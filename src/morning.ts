@@ -7,8 +7,8 @@ import {
   BaselineMetricKey,
   BaselineMetricSnapshot,
   MetricSignal,
-  MorningOptimizedInput,
-  MorningOptimizedResult,
+  MorningInput,
+  MorningResult,
   OptimizedWatcherDeliveryMode,
 } from './types';
 
@@ -57,26 +57,41 @@ function isHigherValueWorse(metric: BaselineMetricKey): boolean {
   return metric === 'lowestHeartRate' || metric === 'temperatureDeviation';
 }
 
-function buildAlertMessage(result: MorningOptimizedResult): string {
-  return [
-    `Good morning. Today's Oura data needs attention for ${result.today.day}.`,
-    `Sleep ${result.today.sleepScore}, readiness ${result.today.readinessScore}, temp ${
-      result.today.temperatureDeviation == null
-        ? 'n/a'
-        : result.today.temperatureDeviation.toFixed(1)
-    }C.`,
-    `Detailed sleep: HRV ${result.today.averageHrv ?? 'n/a'} ms, lowest HR ${
-      result.today.lowestHeartRate ?? 'n/a'
-    } bpm, total sleep ${formatDuration(result.today.totalSleepDuration ?? null)}.`,
-    `Attention: ${result.alertReasons.join(', ')}.`,
-  ].join(' ');
+function formatTemperature(value: number | null | undefined): string {
+  if (value == null) {
+    return 'n/a';
+  }
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)}C`;
 }
 
-function buildDeliveryKey(result: MorningOptimizedResult): string {
+function humanizeReason(reason: string): string {
+  return reason.replaceAll('_', ' ');
+}
+
+function buildMorningMessage(result: MorningResult): string {
+  const intro = result.shouldAlert
+    ? `Good morning. Today's Oura summary for ${result.today.day} shows a few attention signals.`
+    : `Good morning. Today's Oura summary for ${result.today.day} is ready. Nothing urgent stands out.`;
+
+  const lines = [
+    intro,
+    `Sleep ${result.today.sleepScore ?? 'n/a'} | Total ${formatDuration(result.today.totalSleepDuration ?? null)}`,
+    `Readiness ${result.today.readinessScore ?? 'n/a'} | Temp ${formatTemperature(result.today.temperatureDeviation)}`,
+    `HRV ${result.today.averageHrv ?? 'n/a'} ms | Lowest HR ${result.today.lowestHeartRate ?? 'n/a'} bpm`,
+  ];
+
+  if (result.shouldAlert && result.alertReasons.length > 0) {
+    lines.push(`Attention: ${result.alertReasons.map(humanizeReason).join(', ')}.`);
+  }
+
+  return lines.join(' ');
+}
+
+function buildDeliveryKey(result: MorningResult): string {
   const payload = JSON.stringify({
     day: result.today.day,
     deliveryMode: result.deliveryMode,
-    deliveryType: result.deliveryType ?? 'none',
+    shouldAlert: result.shouldAlert,
     alertMetrics: [...result.alertMetrics].sort(),
     alertReasons: [...result.alertReasons].sort(),
     skipReasons: [...result.skipReasons].sort(),
@@ -149,7 +164,7 @@ function uniqueMetrics(metrics: BaselineMetricKey[]): BaselineMetricKey[] {
   return [...new Set(metrics)];
 }
 
-export function evaluateMorningOptimized(input: MorningOptimizedInput): MorningOptimizedResult {
+export function evaluateMorning(input: MorningInput): MorningResult {
   const deliveryMode: OptimizedWatcherDeliveryMode = input.deliveryMode ?? 'unusual-only';
   const skipReasons: string[] = [];
   if (input.today.sleepScore == null) {
@@ -245,16 +260,11 @@ export function evaluateMorningOptimized(input: MorningOptimizedInput): MorningO
   const shouldAlert = alertReasons.length > 0;
   const shouldSendCandidate = shouldAlert || deliveryMode === 'daily-when-ready';
 
-  const result: MorningOptimizedResult = {
+  const result: MorningResult = {
     dataReady: true,
     shouldAlert,
     shouldSend: shouldSendCandidate,
     deliveryMode,
-    deliveryType: shouldAlert
-      ? 'optimized-alert'
-      : shouldSendCandidate
-        ? 'morning-summary'
-        : undefined,
     baselineStatus: input.baselineStatus,
     today: input.today,
     baseline: input.baseline,
@@ -264,11 +274,9 @@ export function evaluateMorningOptimized(input: MorningOptimizedInput): MorningO
     metricSignals,
   };
 
-  if (result.deliveryType === 'optimized-alert') {
+  if (shouldSendCandidate) {
     result.deliveryKey = buildDeliveryKey(result);
-    result.message = buildAlertMessage(result);
-  } else if (result.deliveryType === 'morning-summary') {
-    result.deliveryKey = buildDeliveryKey(result);
+    result.message = buildMorningMessage(result);
   }
 
   if (
@@ -279,6 +287,7 @@ export function evaluateMorningOptimized(input: MorningOptimizedInput): MorningO
     return {
       ...result,
       shouldSend: false,
+      message: undefined,
       alreadyDeliveredToday: true,
       deliveryKey: undefined,
       skipReasons: ['already_delivered_today', ...result.skipReasons],

@@ -7,9 +7,9 @@
 Based on [Ricky Bloomfield's OuraClaw](https://github.com/rickybloomfield/OuraClaw), this fork refactors the original
 OpenClaw plugin into a standalone, JSON-first CLI. It keeps the shipped `oura` skill compatible through a CLI-backed
 adaptation, but the CLI itself is not tied to OpenClaw. It can be used from shell scripts, cron, other agent systems,
-or any automation runner that can invoke a command and consume JSON. It also adds an
-**[optimized morning flow](docs/guides/optimized-morning-routine.md)** that avoids stale yesterday fallback data and
-only sends alerts when today's data needs attention.
+or any automation runner that can invoke a command and consume JSON. It also adds a
+**[canonical morning flow](docs/guides/optimized-morning-routine.md)** that avoids stale yesterday fallback data,
+waits for real same-day readiness, and still flags attention-worthy mornings clearly.
 
 `ouraclaw-cli` is a standalone CLI for Oura automation. It fetches Oura data, manages OAuth tokens and local thresholds,
 builds summary output, and ships an optional OpenClaw skill for users who want OpenClaw-managed delivery.
@@ -120,8 +120,9 @@ ouraclaw-cli fetch sleep --start-date 2026-03-12 --end-date 2026-03-13
 ouraclaw-cli auth login
 ouraclaw-cli auth status
 ouraclaw-cli baseline rebuild
-ouraclaw-cli summary morning --text
-ouraclaw-cli summary morning-optimized
+ouraclaw-cli summary morning --delivery-mode daily-when-ready --text
+ouraclaw-cli summary morning
+ouraclaw-cli summary morning-confirm --delivery-key <deliveryKey>
 ouraclaw-cli summary week-overview
 ouraclaw-cli summary evening --text
 ```
@@ -135,13 +136,12 @@ JSON is the default output mode. Use `--text` on summary commands when you want 
 
 `ouraclaw-cli` can set up OpenClaw cron jobs for:
 
-- a fixed morning recap
+- a morning summary watcher that can run once or over a repeated morning window
 - a fixed evening recap
-- an optimized morning watcher that re-checks between a start and end time so you get notified as soon as Oura syncs
 
-Even if you want a morning message every day, the optimized watcher can still be the better setup. It can wait until
-today's Oura data is actually synced, then either alert only when attention is needed or send every day once the real
-same-day data is ready.
+The morning summary watcher can wait until today's Oura data is actually synced, then either alert only when attention
+is needed or send every day once the real same-day data is ready. Set the same start and end time if you want a single
+morning check instead of a repeated window.
 
 Run:
 
@@ -160,15 +160,13 @@ ouraclaw-cli schedule migrate-from-ouraclaw-plugin
 
 See [Scheduling guide](docs/guides/scheduling.md) for the full walkthrough and [Migration Guide](docs/guides/migrating-from-openclaw-plugin.md) for old plugin cleanup.
 
-## Optimized Morning Flow
+## Morning Summary Flow
 
-`summary morning-optimized` is the quiet-by-default alert path: it compares today's Oura data against fixed thresholds
-plus your personal baseline and only recommends an alert when something needs attention. See
-[Optimized morning routine](docs/guides/optimized-morning-routine.md) for the full decision logic, baseline tuning, and
-delivery-confirmation flow.
-
-The scheduler can also use that same optimized flow for daily delivery. In that mode it still waits for real Oura sync
-instead of firing too early, and the skill can show all optimized metrics while marking worse-than-baseline values.
+`summary morning` is the canonical morning path: it compares today's Oura data against fixed thresholds plus your
+personal baseline, waits for real same-day readiness, and returns one morning summary contract. Quiet days can still
+send a calm recap in `daily-when-ready` mode, while attention days use the same command and result shape with stronger
+alert emphasis. See [Optimized morning routine](docs/guides/optimized-morning-routine.md) for the full decision logic,
+baseline tuning, and delivery-confirmation flow.
 
 ## Weekly Overview
 
@@ -177,7 +175,7 @@ day, all six optimized metrics in a fixed order, and explicit attention markers 
 
 The command is useful on its own for manual review or external automations, and the shipped Oura skill now includes a
 dedicated weekly template for localized delivery. This also sets up the planned Monday flow where the weekly overview
-can be embedded into the optimized morning message.
+can be embedded into the morning summary message.
 
 ## OpenClaw Skill
 
@@ -209,7 +207,7 @@ npm run test:coverage
 
 # example command invocations:
 npm run dev -- fetch daily_sleep
-npm run dev -- summary morning-optimized
+npm run dev -- summary morning
 ```
 
 ## License

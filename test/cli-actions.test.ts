@@ -14,8 +14,7 @@ const rebuildAutomaticBaseline = vi.fn();
 const rebuildManualBaseline = vi.fn();
 const validateBaselineConfig = vi.fn((config) => config);
 const isBaselineStale = vi.fn();
-const evaluateMorningOptimized = vi.fn();
-const buildMorningSummary = vi.fn();
+const evaluateMorning = vi.fn();
 const buildEveningSummary = vi.fn();
 const createOrReplaceScheduleJobs = vi.fn();
 const getConfiguredChannelTargets = vi.fn(() => []);
@@ -88,8 +87,8 @@ vi.mock('../src/baseline', () => ({
   validateBaselineConfig,
 }));
 
-vi.mock('../src/morning-optimized', () => ({
-  evaluateMorningOptimized,
+vi.mock('../src/morning', () => ({
+  evaluateMorning,
 }));
 
 vi.mock('../src/schedule', () => ({
@@ -107,7 +106,6 @@ vi.mock('../src/schedule', () => ({
 }));
 
 vi.mock('../src/summaries', () => ({
-  buildMorningSummary,
   buildEveningSummary,
   selectPreferredSleepRecord: vi.fn((records) => records[0]),
 }));
@@ -400,20 +398,23 @@ describe('cli actions', () => {
   test('prints morning summary text when requested', async () => {
     ensureValidAccessToken.mockResolvedValue('token');
     fetchOuraData.mockResolvedValue({ data: [] });
-    buildMorningSummary.mockReturnValue({
-      day: '2026-03-13',
+    evaluateMorning.mockReturnValue({
+      dataReady: true,
+      shouldAlert: false,
+      shouldSend: true,
+      deliveryMode: 'daily-when-ready',
       message: 'morning text',
-      missing: [],
-      payload: {},
+      alertReasons: [],
+      skipReasons: [],
     });
 
     const { runMorningSummary } = await import('../src/cli');
-    await runMorningSummary(true);
+    await runMorningSummary(true, 'daily-when-ready');
 
     expect(printText).toHaveBeenCalledWith('morning text');
   });
 
-  test('refreshes stale baseline during morning optimized flow', async () => {
+  test('refreshes stale baseline during canonical morning flow', async () => {
     ensureValidAccessToken.mockResolvedValue('token');
     fetchOuraData.mockResolvedValue({ data: [] });
     readState.mockReturnValue({
@@ -452,7 +453,7 @@ describe('cli actions', () => {
       sourceEndDay: '',
       metrics: {},
     });
-    evaluateMorningOptimized.mockReturnValue({
+    evaluateMorning.mockReturnValue({
       shouldSend: false,
       shouldAlert: false,
       dataReady: true,
@@ -460,11 +461,11 @@ describe('cli actions', () => {
       skipReasons: [],
     });
 
-    const { runMorningOptimized } = await import('../src/cli');
-    await runMorningOptimized();
+    const { runMorningSummaryJson } = await import('../src/cli');
+    await runMorningSummaryJson();
 
     expect(rebuildAutomaticBaseline).toHaveBeenCalled();
-    expect(evaluateMorningOptimized).toHaveBeenCalled();
+    expect(evaluateMorning).toHaveBeenCalled();
     expect(printJson).toHaveBeenCalledWith({
       shouldSend: false,
       shouldAlert: false,
@@ -474,7 +475,7 @@ describe('cli actions', () => {
     });
   });
 
-  test('records confirmed morning optimized delivery', async () => {
+  test('records confirmed morning delivery', async () => {
     ensureValidAccessToken.mockResolvedValue('token');
     fetchOuraData.mockResolvedValue({ data: [] });
     readState.mockReturnValue({
@@ -486,7 +487,7 @@ describe('cli actions', () => {
       deliveries: {},
     });
     isBaselineStale.mockReturnValue(false);
-    evaluateMorningOptimized.mockReturnValue({
+    evaluateMorning.mockReturnValue({
       shouldSend: true,
       shouldAlert: true,
       dataReady: true,
@@ -501,12 +502,12 @@ describe('cli actions', () => {
       },
     });
 
-    const { confirmMorningOptimizedDelivery } = await import('../src/cli');
-    await confirmMorningOptimizedDelivery('abc123');
+    const { confirmMorningDelivery } = await import('../src/cli');
+    await confirmMorningDelivery('abc123');
 
     expect(updateState).toHaveBeenCalledWith({
       deliveries: {
-        morningOptimized: {
+        morning: {
           lastDeliveredDay: expect.stringMatching(/\d{4}-\d{2}-\d{2}/),
           lastDeliveredAt: expect.any(String),
           lastDeliveryKey: 'abc123',
@@ -588,16 +589,13 @@ describe('cli actions', () => {
       channel: 'signal',
       target: '+421',
       morningEnabled: true,
-      morningTime: '07:30',
+      morningDeliveryMode: 'daily-when-ready',
+      morningStart: '08:00',
+      morningEnd: '13:00',
+      morningIntervalMinutes: 60,
+      morningCronJobIds: ['job-morning-1', 'job-morning-2'],
       eveningEnabled: false,
       eveningTime: '21:00',
-      optimizedWatcherEnabled: true,
-      optimizedWatcherDeliveryMode: 'daily-when-ready',
-      optimizedWatcherStart: '08:00',
-      optimizedWatcherEnd: '13:00',
-      optimizedWatcherIntervalMinutes: 60,
-      morningCronJobId: 'job-morning',
-      optimizedWatcherCronJobIds: ['job-optimized'],
     };
     readState.mockReturnValue({
       schemaVersion: 1,
@@ -611,8 +609,8 @@ describe('cli actions', () => {
       openclawAvailable: true,
       configured: schedule,
       existingManagedJobs: [
-        { id: 'job-morning', name: 'ouraclaw-cli Morning Summary' },
-        { id: 'job-optimized', name: 'ouraclaw-cli Morning Optimized' },
+        { id: 'job-morning-1', name: 'ouraclaw-cli Morning Summary #1' },
+        { id: 'job-morning-2', name: 'ouraclaw-cli Morning Summary #2' },
       ],
       existingLegacyJobs: [{ id: 'legacy-1', name: 'OuraClaw Morning Summary' }],
     });
@@ -630,19 +628,14 @@ describe('cli actions', () => {
       managedJobs: {
         morning: {
           enabled: true,
-          storedId: 'job-morning',
-          exists: true,
+          deliveryMode: 'daily-when-ready',
+          storedIds: ['job-morning-1', 'job-morning-2'],
+          existingIds: ['job-morning-1', 'job-morning-2'],
         },
         evening: {
           enabled: false,
           storedId: null,
           exists: false,
-        },
-        optimizedWatcher: {
-          enabled: true,
-          deliveryMode: 'daily-when-ready',
-          storedIds: ['job-optimized'],
-          existingIds: ['job-optimized'],
         },
       },
       legacyJobs: [{ id: 'legacy-1', name: 'OuraClaw Morning Summary' }],
@@ -662,22 +655,19 @@ describe('cli actions', () => {
         channel: 'signal',
         target: '+421',
         morningEnabled: true,
-        morningTime: '07:30',
+        morningDeliveryMode: 'unusual-only',
+        morningStart: '08:00',
+        morningEnd: '13:00',
+        morningIntervalMinutes: 60,
+        morningCronJobIds: ['morning-1', 'morning-2'],
         eveningEnabled: true,
         eveningTime: '21:00',
-        optimizedWatcherEnabled: true,
-        optimizedWatcherDeliveryMode: 'unusual-only',
-        optimizedWatcherStart: '08:00',
-        optimizedWatcherEnd: '13:00',
-        optimizedWatcherIntervalMinutes: 60,
-        morningCronJobId: 'morning-id',
         eveningCronJobId: 'evening-id',
-        optimizedWatcherCronJobIds: ['opt-1', 'opt-2'],
       },
       deliveries: {},
     });
     removeManagedScheduleJobs.mockReturnValue({
-      removedIds: ['morning-id', 'evening-id', 'opt-1', 'opt-2'],
+      removedIds: ['morning-1', 'morning-2', 'evening-id'],
     });
 
     const { runScheduleDisable } = await import('../src/cli');
@@ -685,9 +675,8 @@ describe('cli actions', () => {
 
     expect(removeManagedScheduleJobs).toHaveBeenCalledWith(
       expect.objectContaining({
-        morningCronJobId: 'morning-id',
+        morningCronJobIds: ['morning-1', 'morning-2'],
         eveningCronJobId: 'evening-id',
-        optimizedWatcherCronJobIds: ['opt-1', 'opt-2'],
       })
     );
     expect(updateState).toHaveBeenCalledWith({
@@ -695,11 +684,9 @@ describe('cli actions', () => {
         enabled: false,
         morningEnabled: false,
         eveningEnabled: false,
-        optimizedWatcherEnabled: false,
-        optimizedWatcherDeliveryMode: 'unusual-only',
-        morningCronJobId: undefined,
+        morningDeliveryMode: 'unusual-only',
+        morningCronJobIds: [],
         eveningCronJobId: undefined,
-        optimizedWatcherCronJobIds: [],
         channel: 'signal',
       }),
     });
@@ -716,14 +703,12 @@ describe('cli actions', () => {
         timezone: 'UTC',
         deliveryLanguage: 'English',
         morningEnabled: false,
-        morningTime: '07:00',
+        morningDeliveryMode: 'unusual-only',
+        morningStart: '08:00',
+        morningEnd: '13:00',
+        morningIntervalMinutes: 60,
         eveningEnabled: false,
         eveningTime: '21:00',
-        optimizedWatcherEnabled: false,
-        optimizedWatcherDeliveryMode: 'unusual-only',
-        optimizedWatcherStart: '08:00',
-        optimizedWatcherEnd: '13:00',
-        optimizedWatcherIntervalMinutes: 60,
       },
       deliveries: {},
     });
@@ -739,7 +724,8 @@ describe('cli actions', () => {
         target: '+421',
         timezone: 'Europe/Bratislava',
         morningEnabled: true,
-        morningTime: '07:30',
+        morningStart: '07:30',
+        morningEnd: '07:30',
       },
       legacyJobs: [{ id: 'legacy-1', name: 'OuraClaw Morning Summary' }],
     });
@@ -763,7 +749,8 @@ describe('cli actions', () => {
         target: '+421',
         timezone: 'Europe/Bratislava',
         morningEnabled: true,
-        morningTime: '07:30',
+        morningStart: '07:30',
+        morningEnd: '07:30',
       }),
     });
     expect(printJson).toHaveBeenCalledWith({
@@ -778,7 +765,8 @@ describe('cli actions', () => {
         target: '+421',
         timezone: 'Europe/Bratislava',
         morningEnabled: true,
-        morningTime: '07:30',
+        morningStart: '07:30',
+        morningEnd: '07:30',
       },
       schedule: expect.objectContaining({
         channel: 'signal',
@@ -800,14 +788,12 @@ describe('cli actions', () => {
         channel: 'discord',
         target: '809342603711348768',
         morningEnabled: true,
-        morningTime: '07:30',
+        morningDeliveryMode: 'unusual-only',
+        morningStart: '08:00',
+        morningEnd: '13:00',
+        morningIntervalMinutes: 60,
         eveningEnabled: false,
         eveningTime: '21:00',
-        optimizedWatcherEnabled: false,
-        optimizedWatcherDeliveryMode: 'unusual-only',
-        optimizedWatcherStart: '08:00',
-        optimizedWatcherEnd: '13:00',
-        optimizedWatcherIntervalMinutes: 60,
       },
       deliveries: {},
     });
@@ -820,6 +806,8 @@ describe('cli actions', () => {
       .mockResolvedValueOnce('2')
       .mockResolvedValueOnce('2')
       .mockResolvedValueOnce('1482716547729326262')
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('')
       .mockResolvedValueOnce('')
       .mockResolvedValueOnce('')
       .mockResolvedValueOnce('')

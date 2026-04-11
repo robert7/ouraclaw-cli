@@ -21,8 +21,8 @@ describe('state-store', () => {
     expect(state.baselineConfig.lowerPercentile).toBe(25);
     expect(state.baselineConfig.supportingMetricAlertCount).toBe(2);
     expect(state.schedule.deliveryLanguage).toBe('English');
-    expect(state.schedule.optimizedWatcherDeliveryMode).toBe('unusual-only');
-    expect(state.schedule.optimizedWatcherIntervalMinutes).toBe(60);
+    expect(state.schedule.morningDeliveryMode).toBe('unusual-only');
+    expect(state.schedule.morningIntervalMinutes).toBe(60);
     expect(state.deliveries).toEqual({});
     expect(state.auth.accessToken).toBeUndefined();
   });
@@ -90,14 +90,12 @@ describe('state-store', () => {
         timezone: 'UTC',
         deliveryLanguage: 'English',
         morningEnabled: false,
-        morningTime: '07:00',
+        morningDeliveryMode: 'unusual-only',
+        morningStart: '08:00',
+        morningEnd: '13:00',
+        morningIntervalMinutes: 60,
         eveningEnabled: false,
         eveningTime: '21:00',
-        optimizedWatcherEnabled: false,
-        optimizedWatcherDeliveryMode: 'unusual-only',
-        optimizedWatcherStart: '08:00',
-        optimizedWatcherEnd: '13:00',
-        optimizedWatcherIntervalMinutes: 60,
       },
       deliveries: {},
     });
@@ -106,7 +104,7 @@ describe('state-store', () => {
       auth: { accessToken: 'fresh-token' },
       thresholds: { readinessScoreMin: 72 },
       deliveries: {
-        morningOptimized: {
+        morning: {
           lastDeliveredDay: '2026-03-13',
           lastDeliveredAt: '2026-03-13T08:00:00.000Z',
           lastDeliveryKey: 'abc123',
@@ -114,18 +112,18 @@ describe('state-store', () => {
       },
       schedule: {
         deliveryLanguage: 'Slovak',
-        optimizedWatcherDeliveryMode: 'daily-when-ready',
-        optimizedWatcherCronJobIds: ['job-1', 'job-2'],
+        morningDeliveryMode: 'daily-when-ready',
+        morningCronJobIds: ['job-1', 'job-2'],
       },
     });
 
     expect(next.auth.accessToken).toBe('fresh-token');
     expect(next.thresholds.sleepScoreMin).toBe(75);
     expect(next.thresholds.readinessScoreMin).toBe(72);
-    expect(next.deliveries?.morningOptimized?.lastDeliveryKey).toBe('abc123');
+    expect(next.deliveries?.morning?.lastDeliveryKey).toBe('abc123');
     expect(next.schedule.deliveryLanguage).toBe('Slovak');
-    expect(next.schedule.optimizedWatcherDeliveryMode).toBe('daily-when-ready');
-    expect(next.schedule.optimizedWatcherCronJobIds).toEqual(['job-1', 'job-2']);
+    expect(next.schedule.morningDeliveryMode).toBe('daily-when-ready');
+    expect(next.schedule.morningCronJobIds).toEqual(['job-1', 'job-2']);
 
     const stateFile = path.join(home, 'ouraclaw-cli.json');
     const dirMode = fs.statSync(home).mode & 0o777;

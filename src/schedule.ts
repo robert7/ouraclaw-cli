@@ -35,16 +35,15 @@ export interface ScheduleStatusResult {
 }
 
 interface ManagedCronJobDefinition {
-  kind: 'morning' | 'evening' | 'optimizedWatcher';
+  kind: 'morning' | 'evening';
   name: string;
   cron: string;
   message: string;
 }
 
 const MANAGED_JOB_NAMES = {
-  morning: 'ouraclaw-cli Morning Summary',
+  morningPrefix: 'ouraclaw-cli Morning Summary',
   evening: 'ouraclaw-cli Evening Summary',
-  optimizedWatcherPrefix: 'ouraclaw-cli Morning Optimized',
 } as const;
 
 const LEGACY_JOB_NAMES = [
@@ -52,6 +51,7 @@ const LEGACY_JOB_NAMES = [
   'OuraClaw Evening Summary',
   'ouraclaw-morning',
   'ouraclaw-evening',
+  'ouraclaw-cli Morning Optimized',
 ] as const;
 
 const SKILL_PATH = path.resolve(__dirname, '..', 'skills', 'oura', 'SKILL.md');
@@ -182,19 +182,19 @@ function joinSortedNumbers(values: number[]): string {
   return [...values].sort((left, right) => left - right).join(',');
 }
 
-export function buildOptimizedWatcherCronExpressions(
+export function buildMorningCronExpressions(
   start: string,
   end: string,
   intervalMinutes: number
 ): string[] {
   if (!Number.isInteger(intervalMinutes) || intervalMinutes <= 0) {
-    throw new Error('Optimized watcher interval must be a positive whole number of minutes.');
+    throw new Error('Morning summary interval must be a positive whole number of minutes.');
   }
 
   const startTime = parseTimeOfDay(start);
   const endTime = parseTimeOfDay(end);
   if (endTime.totalMinutes < startTime.totalMinutes) {
-    throw new Error('Optimized watcher end time must be at or after the start time.');
+    throw new Error('Morning summary end time must be at or after the start time.');
   }
 
   const occurrences: { hours: number; minutes: number }[] = [];
@@ -220,16 +220,12 @@ export function buildOptimizedWatcherCronExpressions(
     .map(([minute, hours]) => `${minute} ${joinSortedNumbers(hours)} * * *`);
 }
 
-function isManagedOptimizedWatcherJobName(name: string): boolean {
-  return name.startsWith(MANAGED_JOB_NAMES.optimizedWatcherPrefix);
+function isManagedMorningJobName(name: string): boolean {
+  return name.startsWith(MANAGED_JOB_NAMES.morningPrefix);
 }
 
 export function isManagedScheduleJob(job: Pick<OpenClawCronJob, 'name'>): boolean {
-  return (
-    job.name === MANAGED_JOB_NAMES.morning ||
-    job.name === MANAGED_JOB_NAMES.evening ||
-    isManagedOptimizedWatcherJobName(job.name)
-  );
+  return job.name === MANAGED_JOB_NAMES.evening || isManagedMorningJobName(job.name);
 }
 
 export function findLegacyOuraClawJobs(jobs: OpenClawCronJob[]): OpenClawCronJob[] {
@@ -260,8 +256,9 @@ export function getLegacyScheduleDefaults(
     defaults.target = legacyConfig.preferredChannelTarget;
   }
   if (legacyConfig.morningTime) {
-    defaults.morningTime = legacyConfig.morningTime;
     defaults.morningEnabled = legacyConfig.scheduledMessages ?? true;
+    defaults.morningStart = legacyConfig.morningTime;
+    defaults.morningEnd = legacyConfig.morningTime;
   }
   if (legacyConfig.eveningTime) {
     defaults.eveningTime = legacyConfig.eveningTime;
@@ -282,49 +279,49 @@ export function inspectLegacySchedule(jobs = listOpenClawCronJobs()): LegacySche
 }
 
 export function renderCronPrompt(
-  type: 'morning' | 'evening' | 'optimizedWatcher',
-  schedule: Pick<
-    ScheduleConfig,
-    'channel' | 'target' | 'deliveryLanguage' | 'optimizedWatcherDeliveryMode'
-  >
+  type: 'morning' | 'evening',
+  schedule: Pick<ScheduleConfig, 'channel' | 'target' | 'deliveryLanguage' | 'morningDeliveryMode'>
 ): string {
   const destination = `Deliver directly to channel "${schedule.channel ?? 'default'}" and target "${schedule.target ?? 'default'}".`;
   const language = `Delivery language: ${schedule.deliveryLanguage}.`;
 
-  if (type === 'morning') {
-    return `Read ${SKILL_PATH} and follow the Morning Summary Template. ${destination} ${language}`;
-  }
   if (type === 'evening') {
     return `Read ${SKILL_PATH} and follow the Evening Summary Template. ${destination} ${language}`;
   }
-  const deliveryMode: OptimizedWatcherDeliveryMode =
-    schedule.optimizedWatcherDeliveryMode ?? 'unusual-only';
+
+  const deliveryMode: OptimizedWatcherDeliveryMode = schedule.morningDeliveryMode ?? 'unusual-only';
   const command =
     deliveryMode === 'daily-when-ready'
-      ? 'ouraclaw-cli summary morning-optimized --delivery-mode daily-when-ready'
-      : 'ouraclaw-cli summary morning-optimized';
+      ? 'ouraclaw-cli summary morning --delivery-mode daily-when-ready'
+      : 'ouraclaw-cli summary morning';
   const confirmCommand =
     deliveryMode === 'daily-when-ready'
-      ? 'ouraclaw-cli summary morning-optimized-confirm --delivery-mode daily-when-ready --delivery-key <deliveryKey>'
-      : 'ouraclaw-cli summary morning-optimized-confirm --delivery-key <deliveryKey>';
+      ? 'ouraclaw-cli summary morning-confirm --delivery-mode daily-when-ready --delivery-key <deliveryKey>'
+      : 'ouraclaw-cli summary morning-confirm --delivery-key <deliveryKey>';
   const noOutputInstruction =
     'If dataReady is false or shouldSend is false, send nothing and produce no output at all. Do not post a status message, explanation, acknowledgment, or skip notice.';
-  const modeInstruction =
-    deliveryMode === 'daily-when-ready'
-      ? `${noOutputInstruction} If shouldSend is true, follow the Morning Optimized Template. Treat deliveryType "morning-summary" as the ready-day branch of this optimized watcher, not as a separate scheduler. Use the nested morningSummary payload only as extra context.`
-      : `${noOutputInstruction} If shouldSend is true, follow the Morning Optimized Template.`;
-  return `Read ${SKILL_PATH}. Run ${command}. ${modeInstruction} Confirm successful delivery with ${confirmCommand} only after the send succeeds. ${destination} ${language}`;
+  return `Read ${SKILL_PATH}. Run ${command}. ${noOutputInstruction} If shouldSend is true, follow the Morning Summary Template. Confirm successful delivery with ${confirmCommand} only after the send succeeds. ${destination} ${language}`;
 }
 
 function buildManagedCronJobs(schedule: ScheduleConfig): ManagedCronJobDefinition[] {
   const jobs: ManagedCronJobDefinition[] = [];
   if (schedule.morningEnabled) {
-    jobs.push({
-      kind: 'morning',
-      name: MANAGED_JOB_NAMES.morning,
-      cron: timeToDailyCron(schedule.morningTime),
-      message: renderCronPrompt('morning', schedule),
-    });
+    const expressions = buildMorningCronExpressions(
+      schedule.morningStart,
+      schedule.morningEnd,
+      schedule.morningIntervalMinutes
+    );
+    for (const [index, cron] of expressions.entries()) {
+      jobs.push({
+        kind: 'morning',
+        name:
+          expressions.length === 1
+            ? MANAGED_JOB_NAMES.morningPrefix
+            : `${MANAGED_JOB_NAMES.morningPrefix} #${index + 1}`,
+        cron,
+        message: renderCronPrompt('morning', schedule),
+      });
+    }
   }
   if (schedule.eveningEnabled) {
     jobs.push({
@@ -333,24 +330,6 @@ function buildManagedCronJobs(schedule: ScheduleConfig): ManagedCronJobDefinitio
       cron: timeToDailyCron(schedule.eveningTime),
       message: renderCronPrompt('evening', schedule),
     });
-  }
-  if (schedule.optimizedWatcherEnabled) {
-    const expressions = buildOptimizedWatcherCronExpressions(
-      schedule.optimizedWatcherStart,
-      schedule.optimizedWatcherEnd,
-      schedule.optimizedWatcherIntervalMinutes
-    );
-    for (const [index, cron] of expressions.entries()) {
-      jobs.push({
-        kind: 'optimizedWatcher',
-        name:
-          expressions.length === 1
-            ? MANAGED_JOB_NAMES.optimizedWatcherPrefix
-            : `${MANAGED_JOB_NAMES.optimizedWatcherPrefix} #${index + 1}`,
-        cron,
-        message: renderCronPrompt('optimizedWatcher', schedule),
-      });
-    }
   }
   return jobs;
 }
@@ -396,16 +375,12 @@ function createCronJob(job: ManagedCronJobDefinition, timezone: string): string 
 }
 
 export function removeManagedScheduleJobs(
-  schedule: Pick<
-    ScheduleConfig,
-    'morningCronJobId' | 'eveningCronJobId' | 'optimizedWatcherCronJobIds'
-  >
+  schedule: Pick<ScheduleConfig, 'morningCronJobIds' | 'eveningCronJobId'>
 ): { removedIds: string[] } {
   const jobs = listOpenClawCronJobs();
   const ids = new Set<string>([
-    schedule.morningCronJobId ?? '',
+    ...(schedule.morningCronJobIds ?? []),
     schedule.eveningCronJobId ?? '',
-    ...(schedule.optimizedWatcherCronJobIds ?? []),
     ...findManagedScheduleJobs(jobs).map((job) => job.id),
   ]);
 
@@ -428,28 +403,24 @@ export function createOrReplaceScheduleJobs(schedule: ScheduleConfig): ScheduleC
   removeManagedScheduleJobs(schedule);
 
   const jobIds = {
-    morningCronJobId: undefined as string | undefined,
+    morningCronJobIds: [] as string[],
     eveningCronJobId: undefined as string | undefined,
-    optimizedWatcherCronJobIds: [] as string[],
   };
 
   for (const job of buildManagedCronJobs(schedule)) {
     const id = createCronJob(job, schedule.timezone);
     if (job.kind === 'morning') {
-      jobIds.morningCronJobId = id;
-    } else if (job.kind === 'evening') {
-      jobIds.eveningCronJobId = id;
+      jobIds.morningCronJobIds.push(id);
     } else {
-      jobIds.optimizedWatcherCronJobIds.push(id);
+      jobIds.eveningCronJobId = id;
     }
   }
 
   return {
     ...schedule,
-    enabled: schedule.morningEnabled || schedule.eveningEnabled || schedule.optimizedWatcherEnabled,
-    morningCronJobId: jobIds.morningCronJobId,
+    enabled: schedule.morningEnabled || schedule.eveningEnabled,
+    morningCronJobIds: jobIds.morningCronJobIds,
     eveningCronJobId: jobIds.eveningCronJobId,
-    optimizedWatcherCronJobIds: jobIds.optimizedWatcherCronJobIds,
   };
 }
 
@@ -485,9 +456,8 @@ export function getLegacyJobNames(): string[] {
 }
 
 export function getManagedJobNames(): {
-  morning: string;
+  morningPrefix: string;
   evening: string;
-  optimizedWatcherPrefix: string;
 } {
   return { ...MANAGED_JOB_NAMES };
 }

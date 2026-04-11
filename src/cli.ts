@@ -23,7 +23,7 @@ import {
   validateBaselineConfig,
 } from './baseline';
 import { addDays, compareIsoDates, getTodayIsoDate, parseIsoDate } from './date-utils';
-import { evaluateMorningOptimized } from './morning-optimized';
+import { evaluateMorning } from './morning';
 import { exchangeCodeForTokens, buildAuthorizeUrl, captureOAuthCallback } from './oauth';
 import { fetchOuraData } from './oura-client';
 import { printJson, printText } from './output';
@@ -42,7 +42,7 @@ import {
   removeManagedScheduleJobs,
 } from './schedule';
 import { readState, updateState, writeState } from './state-store';
-import { buildEveningSummary, buildMorningSummary, selectPreferredSleepRecord } from './summaries';
+import { buildEveningSummary, selectPreferredSleepRecord } from './summaries';
 import { defaultThresholds, validateThresholds } from './thresholds';
 import { buildWeekOverview } from './week-overview';
 import {
@@ -291,10 +291,19 @@ function mergeScheduleDefaults(
     channel: current.channel ?? defaults.channel,
     target: current.target ?? defaults.target,
     morningEnabled: current.morningEnabled || defaults.morningEnabled || false,
-    morningTime:
-      current.morningTime !== DEFAULT_SCHEDULE_CONFIG.morningTime
-        ? current.morningTime
-        : (defaults.morningTime ?? current.morningTime),
+    morningDeliveryMode: current.morningDeliveryMode ?? defaults.morningDeliveryMode,
+    morningStart:
+      current.morningStart !== DEFAULT_SCHEDULE_CONFIG.morningStart
+        ? current.morningStart
+        : (defaults.morningStart ?? current.morningStart),
+    morningEnd:
+      current.morningEnd !== DEFAULT_SCHEDULE_CONFIG.morningEnd
+        ? current.morningEnd
+        : (defaults.morningEnd ?? current.morningEnd),
+    morningIntervalMinutes:
+      current.morningIntervalMinutes !== DEFAULT_SCHEDULE_CONFIG.morningIntervalMinutes
+        ? current.morningIntervalMinutes
+        : (defaults.morningIntervalMinutes ?? current.morningIntervalMinutes),
     eveningEnabled: current.eveningEnabled || defaults.eveningEnabled || false,
     eveningTime:
       current.eveningTime !== DEFAULT_SCHEDULE_CONFIG.eveningTime
@@ -337,7 +346,7 @@ async function promptIntervalMinutes(
 ): Promise<number> {
   let value: number;
   do {
-    value = Number(await ask(rl, 'Optimized watcher interval minutes', String(defaultValue)));
+    value = Number(await ask(rl, 'Morning summary interval minutes', String(defaultValue)));
     if (Number.isInteger(value) && value > 0) {
       return value;
     }
@@ -346,13 +355,13 @@ async function promptIntervalMinutes(
   return value;
 }
 
-async function promptOptimizedWatcherDeliveryMode(
+async function promptMorningDeliveryMode(
   rl: readline.Interface,
   defaultValue: OptimizedWatcherDeliveryMode
 ): Promise<OptimizedWatcherDeliveryMode> {
   const choice = await select(
     rl,
-    'Optimized watcher delivery mode:',
+    'Morning summary delivery mode:',
     ['Alert only when attention is needed', "Send every day once today's Oura data is ready"],
     defaultValue === 'daily-when-ready' ? 1 : 0
   );
@@ -508,56 +517,39 @@ async function runScheduleSetupFlow(
   const timezone = await promptTimezoneValue(rl, timezoneDefault);
 
   printText(
-    'Pick which schedules to manage. The optimized watcher is the useful one when you want the alert as soon as Oura syncs.'
+    'Pick which schedules to manage. The morning summary watcher is the useful one when you want the summary as soon as Oura syncs.'
   );
   const morningEnabled = await confirm(
     rl,
-    'Enable standard morning recap',
+    'Enable morning summary',
     currentSchedule.morningEnabled
   );
   const eveningEnabled = await confirm(rl, 'Enable evening recap', currentSchedule.eveningEnabled);
-  const optimizedWatcherEnabled = await confirm(
-    rl,
-    'Enable optimized morning watcher',
-    currentSchedule.optimizedWatcherEnabled ||
-      (!currentSchedule.morningEnabled && !currentSchedule.eveningEnabled)
-  );
-
-  const morningTime = morningEnabled
-    ? await promptTimeValue(rl, 'Morning recap time', currentSchedule.morningTime)
-    : currentSchedule.morningTime;
   const eveningTime = eveningEnabled
     ? await promptTimeValue(rl, 'Evening recap time', currentSchedule.eveningTime)
     : currentSchedule.eveningTime;
 
-  let optimizedWatcherStart = currentSchedule.optimizedWatcherStart;
-  let optimizedWatcherEnd = currentSchedule.optimizedWatcherEnd;
-  let optimizedWatcherIntervalMinutes = currentSchedule.optimizedWatcherIntervalMinutes;
-  let optimizedWatcherDeliveryMode = currentSchedule.optimizedWatcherDeliveryMode;
-  if (optimizedWatcherEnabled) {
+  let morningStart = currentSchedule.morningStart;
+  let morningEnd = currentSchedule.morningEnd;
+  let morningIntervalMinutes = currentSchedule.morningIntervalMinutes;
+  let morningDeliveryMode = currentSchedule.morningDeliveryMode;
+  if (morningEnabled) {
     printText(
-      'Optimized watcher checks repeatedly inside a morning window until Oura data is ready or no attention-worthy signal shows up.'
+      'Morning summary checks repeatedly inside a morning window until Oura data is ready or the configured mode decides whether to send.'
     );
     printText(
-      'If you still want a morning message every day, this mode can wait for real same-day sync and then send once the data is ready.'
+      'Set the same start and end time if you want a single morning check instead of a repeated window.'
     );
-    optimizedWatcherDeliveryMode = await promptOptimizedWatcherDeliveryMode(
+    morningDeliveryMode = await promptMorningDeliveryMode(rl, currentSchedule.morningDeliveryMode);
+    morningStart = await promptTimeValue(
       rl,
-      currentSchedule.optimizedWatcherDeliveryMode
+      'Morning summary start time',
+      currentSchedule.morningStart
     );
-    optimizedWatcherStart = await promptTimeValue(
+    morningEnd = await promptTimeValue(rl, 'Morning summary end time', currentSchedule.morningEnd);
+    morningIntervalMinutes = await promptIntervalMinutes(
       rl,
-      'Optimized watcher start time',
-      currentSchedule.optimizedWatcherStart
-    );
-    optimizedWatcherEnd = await promptTimeValue(
-      rl,
-      'Optimized watcher end time',
-      currentSchedule.optimizedWatcherEnd
-    );
-    optimizedWatcherIntervalMinutes = await promptIntervalMinutes(
-      rl,
-      currentSchedule.optimizedWatcherIntervalMinutes
+      currentSchedule.morningIntervalMinutes
     );
   }
 
@@ -567,20 +559,18 @@ async function runScheduleSetupFlow(
 
   const nextSchedule = createOrReplaceScheduleJobs({
     ...currentSchedule,
-    enabled: morningEnabled || eveningEnabled || optimizedWatcherEnabled,
+    enabled: morningEnabled || eveningEnabled,
     channel: destination.channel,
     target: destination.target,
     deliveryLanguage,
     timezone,
     morningEnabled,
-    morningTime,
+    morningDeliveryMode,
+    morningStart,
+    morningEnd,
+    morningIntervalMinutes,
     eveningEnabled,
     eveningTime,
-    optimizedWatcherEnabled,
-    optimizedWatcherDeliveryMode,
-    optimizedWatcherStart,
-    optimizedWatcherEnd,
-    optimizedWatcherIntervalMinutes,
   });
   updateState({ schedule: nextSchedule });
 
@@ -634,11 +624,11 @@ export function setConfigValue(state: OuraCliState, key: string, value: string):
       throw new Error(`Invalid timezone: ${value}`);
     }
     state.schedule.timezone = value;
-  } else if (key === 'schedule.optimizedWatcherDeliveryMode') {
+  } else if (key === 'schedule.morningDeliveryMode') {
     if (!isOptimizedWatcherDeliveryMode(value)) {
-      throw new Error(`Invalid optimized watcher delivery mode: ${value}`);
+      throw new Error(`Invalid morning delivery mode: ${value}`);
     }
-    state.schedule.optimizedWatcherDeliveryMode = value;
+    state.schedule.morningDeliveryMode = value;
   } else {
     throw new Error(`Unsupported config key: ${key}`);
   }
@@ -815,14 +805,14 @@ export async function fetchMorningBaselineRecordsForRange(
     .filter(hasAnyMorningBaselineValue);
 }
 
-function hasMorningOptimizedDeliveredToday(state: OuraCliState, day: string): boolean {
-  return state.deliveries?.morningOptimized?.lastDeliveredDay === day;
+function hasMorningDeliveredToday(state: OuraCliState, day: string): boolean {
+  return state.deliveries?.morning?.lastDeliveredDay === day;
 }
 
-async function buildMorningOptimizedResult(
+async function buildMorningResult(
   deliveryMode: OptimizedWatcherDeliveryMode = 'unusual-only',
   applyDeliverySuppression = true
-): Promise<ReturnType<typeof evaluateMorningOptimized>> {
+): Promise<ReturnType<typeof evaluateMorning>> {
   const day = getTodayIsoDate();
   const accessToken = await ensureValidAccessToken();
   const summaryInputs = await fetchTodaySummaryInputs(accessToken, day);
@@ -849,7 +839,7 @@ async function buildMorningOptimizedResult(
     }
   }
 
-  const result = evaluateMorningOptimized({
+  return evaluateMorning({
     today: {
       day,
       sleepScore: summaryInputs.dailySleep?.score ?? null,
@@ -864,20 +854,9 @@ async function buildMorningOptimizedResult(
     deliveryMode,
     baseline,
     baselineStatus,
-    alreadyDeliveredToday: hasMorningOptimizedDeliveredToday(state, day),
+    alreadyDeliveredToday: hasMorningDeliveredToday(state, day),
     applyDeliverySuppression,
   });
-
-  if (result.shouldSend && result.deliveryType === 'morning-summary') {
-    const morningSummary = buildMorningSummary({ day, ...summaryInputs });
-    return {
-      ...result,
-      message: morningSummary.message,
-      morningSummary,
-    };
-  }
-
-  return result;
 }
 
 export async function runSetup(): Promise<void> {
@@ -1044,23 +1023,20 @@ export async function rebuildBaseline(mode: 'manual' | 'automatic'): Promise<voi
   printJson(baseline);
 }
 
-export async function runMorningSummary(textMode: boolean): Promise<void> {
-  const day = getTodayIsoDate();
-  const accessToken = await ensureValidAccessToken();
-  const data = await fetchTodaySummaryInputs(accessToken, day);
-  const summary = buildMorningSummary({ day, ...data });
+export async function runMorningSummary(
+  textMode: boolean,
+  deliveryMode: OptimizedWatcherDeliveryMode = 'unusual-only'
+): Promise<void> {
+  const summary = await buildMorningResult(deliveryMode);
 
   if (textMode) {
-    printText(summary.message);
+    if (summary.message) {
+      printText(summary.message);
+    }
     return;
   }
 
-  printJson({
-    day,
-    message: summary.message,
-    missing: summary.missing,
-    ...summary.payload,
-  });
+  printJson(summary);
 }
 
 export async function runEveningSummary(textMode: boolean): Promise<void> {
@@ -1082,10 +1058,10 @@ export async function runEveningSummary(textMode: boolean): Promise<void> {
   });
 }
 
-export async function runMorningOptimized(
+export async function runMorningSummaryJson(
   deliveryMode: OptimizedWatcherDeliveryMode = 'unusual-only'
 ): Promise<void> {
-  printJson(await buildMorningOptimizedResult(deliveryMode));
+  printJson(await buildMorningResult(deliveryMode));
 }
 
 export async function runWeekOverview(startDate?: string, endDate?: string): Promise<void> {
@@ -1131,13 +1107,13 @@ export async function runWeekOverview(startDate?: string, endDate?: string): Pro
   );
 }
 
-export async function confirmMorningOptimizedDelivery(
+export async function confirmMorningDelivery(
   deliveryKey: string,
   deliveryMode: OptimizedWatcherDeliveryMode = 'unusual-only'
 ): Promise<void> {
   const day = getTodayIsoDate();
   const state = readState();
-  const existing = state.deliveries?.morningOptimized;
+  const existing = state.deliveries?.morning;
 
   if (existing?.lastDeliveredDay === day && existing.lastDeliveryKey === deliveryKey) {
     printJson({
@@ -1151,22 +1127,22 @@ export async function confirmMorningOptimizedDelivery(
   }
 
   if (existing?.lastDeliveredDay === day && existing.lastDeliveryKey !== deliveryKey) {
-    throw new Error('A different morning-optimized alert is already confirmed for today.');
+    throw new Error('A different morning summary delivery is already confirmed for today.');
   }
 
-  const result = await buildMorningOptimizedResult(deliveryMode, false);
+  const result = await buildMorningResult(deliveryMode, false);
   if (
     !result.dataReady ||
     !result.shouldSend ||
     !result.deliveryKey ||
     result.deliveryKey !== deliveryKey
   ) {
-    throw new Error("Invalid delivery key for today's sendable morning-optimized result.");
+    throw new Error("Invalid delivery key for today's sendable morning summary result.");
   }
 
   updateState({
     deliveries: {
-      morningOptimized: {
+      morning: {
         lastDeliveredDay: day,
         lastDeliveredAt: new Date().toISOString(),
         lastDeliveryKey: deliveryKey,
@@ -1201,10 +1177,11 @@ export function runScheduleStatus(): void {
     managedJobs: {
       morning: {
         enabled: status.configured.morningEnabled,
-        storedId: status.configured.morningCronJobId ?? null,
-        exists: status.existingManagedJobs.some(
-          (job) => job.id === status.configured.morningCronJobId
-        ),
+        deliveryMode: status.configured.morningDeliveryMode,
+        storedIds: status.configured.morningCronJobIds ?? [],
+        existingIds: status.existingManagedJobs
+          .filter((job) => (status.configured.morningCronJobIds ?? []).includes(job.id))
+          .map((job) => job.id),
       },
       evening: {
         enabled: status.configured.eveningEnabled,
@@ -1212,14 +1189,6 @@ export function runScheduleStatus(): void {
         exists: status.existingManagedJobs.some(
           (job) => job.id === status.configured.eveningCronJobId
         ),
-      },
-      optimizedWatcher: {
-        enabled: status.configured.optimizedWatcherEnabled,
-        deliveryMode: status.configured.optimizedWatcherDeliveryMode,
-        storedIds: status.configured.optimizedWatcherCronJobIds ?? [],
-        existingIds: status.existingManagedJobs
-          .filter((job) => (status.configured.optimizedWatcherCronJobIds ?? []).includes(job.id))
-          .map((job) => job.id),
       },
     },
     legacyJobs: status.existingLegacyJobs.map((job) => ({
@@ -1237,11 +1206,9 @@ export function runScheduleDisable(): void {
     enabled: false,
     morningEnabled: false,
     eveningEnabled: false,
-    optimizedWatcherEnabled: false,
-    optimizedWatcherDeliveryMode: state.schedule.optimizedWatcherDeliveryMode,
-    morningCronJobId: undefined,
+    morningDeliveryMode: state.schedule.morningDeliveryMode,
+    morningCronJobIds: [],
     eveningCronJobId: undefined,
-    optimizedWatcherCronJobIds: [],
   };
   updateState({ schedule: nextSchedule });
   printJson({
@@ -1368,36 +1335,35 @@ export function createProgram(): Command {
   const summary = program.command('summary').description('Build Oura summaries');
   summary
     .command('morning')
-    .option('--text', 'Print sendable text')
-    .action(async (options: { text?: boolean }) => {
-      await runMorningSummary(Boolean(options.text));
-    });
-  summary
-    .command('morning-optimized')
     .option(
       '--delivery-mode <deliveryMode>',
       'Delivery mode: unusual-only or daily-when-ready',
       'unusual-only'
     )
-    .action(async (options: { deliveryMode: string }) => {
+    .option('--text', 'Print sendable text for the current sendable morning result')
+    .action(async (options: { deliveryMode: string; text?: boolean }) => {
       if (!isOptimizedWatcherDeliveryMode(options.deliveryMode)) {
-        throw new Error(`Invalid optimized watcher delivery mode: ${options.deliveryMode}`);
+        throw new Error(`Invalid morning delivery mode: ${options.deliveryMode}`);
       }
-      await runMorningOptimized(options.deliveryMode);
+      if (options.text) {
+        await runMorningSummary(true, options.deliveryMode);
+        return;
+      }
+      await runMorningSummaryJson(options.deliveryMode);
     });
   summary
-    .command('morning-optimized-confirm')
-    .requiredOption('--delivery-key <deliveryKey>', 'Confirm a delivered morning-optimized alert')
+    .command('morning-confirm')
+    .requiredOption('--delivery-key <deliveryKey>', 'Confirm a delivered morning summary')
     .option(
       '--delivery-mode <deliveryMode>',
-      'Delivery mode used for the original morning-optimized result',
+      'Delivery mode used for the original morning result',
       'unusual-only'
     )
     .action(async (options: { deliveryKey: string; deliveryMode: string }) => {
       if (!isOptimizedWatcherDeliveryMode(options.deliveryMode)) {
-        throw new Error(`Invalid optimized watcher delivery mode: ${options.deliveryMode}`);
+        throw new Error(`Invalid morning delivery mode: ${options.deliveryMode}`);
       }
-      await confirmMorningOptimizedDelivery(options.deliveryKey, options.deliveryMode);
+      await confirmMorningDelivery(options.deliveryKey, options.deliveryMode);
     });
   summary
     .command('week-overview')

@@ -61,9 +61,8 @@ fully usable for manual commands or another scheduler.
 
 That walkthrough can configure:
 
-- a fixed morning recap
+- a morning summary watcher
 - a fixed evening recap
-- an optimized morning watcher
 
 For full scheduling details, see the [Scheduling guide](scheduling.md).
 

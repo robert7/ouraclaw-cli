@@ -22,7 +22,7 @@ The state file stores:
 - schedule configuration for channel, target, delivery language, timezone, enabled job types, and stored OpenClaw cron
   job IDs
 - baseline snapshot metadata and metric bounds
-- confirmed optimized-morning delivery state
+- confirmed morning delivery state
 
 The CLI creates the parent directory with private permissions and rewrites the file with private permissions after each
 state change. On first read it also checks for the legacy OpenClaw plugin config at
@@ -37,7 +37,7 @@ values, closes cleanly on timeout, and writes tokens only after a successful tok
 
 ## Baseline Policy
 
-`summary morning-optimized` can refresh the stored baseline automatically when none exists or when the snapshot is more
+`summary morning` can refresh the stored baseline automatically when none exists or when the snapshot is more
 than one week old. Automatic refresh uses the last three completed calendar weeks relative to last Monday. Manual
 rebuild uses the previous 21 days excluding today.
 
@@ -54,16 +54,16 @@ For each metric the snapshot stores a median plus ordinary low/high bounds. The 
 lower percentile and its mirrored upper percentile. With the default `25`, the ordinary band is the 25th to 75th
 percentile. A same-day value outside that band becomes a direction-aware metric signal.
 
-The optimized morning routine combines fixed thresholds and baseline attention signals. Fixed-threshold failures alert
+The morning summary routine combines fixed thresholds and baseline attention signals. Fixed-threshold failures alert
 immediately. For baseline signals, `sleepScore`, `readinessScore`, and `totalSleepDuration` are primary metrics: a
 worse value on any one of them alerts by itself. `temperatureDeviation`, `averageHrv`, and `lowestHeartRate` are
 supporting metrics: they are marked for attention when worse, but require the configured supporting metric alert count
-before they trigger an optimized alert. Higher HRV and lower resting heart rate are treated as better baseline signals,
-not alert causes.
+before they trigger an alert-oriented morning summary. Higher HRV and lower resting heart rate are treated as better
+baseline signals, not alert causes.
 
-Once an agent has successfully delivered an optimized morning alert, it must confirm delivery back to the CLI with the
-returned `deliveryKey`. The CLI stores that confirmation in local state and suppresses duplicate optimized-morning
-alerts for the rest of the same calendar day.
+Once an agent has successfully delivered a morning summary, it must confirm delivery back to the CLI with the returned
+`deliveryKey`. The CLI stores that confirmation in local state and suppresses duplicate same-day morning sends for the
+rest of the calendar day.
 
 ## Skill Integration
 
@@ -71,7 +71,7 @@ The OpenClaw skill does not reimplement business logic. It invokes `ouraclaw-cli
 execution, prefers JSON for automation, and uses `--text` only when it needs a sendable recap string.
 
 The same JSON-first contract is intended to work equally well for non-OpenClaw automations. In addition to the daily
-recap commands and optimized morning decision, `summary week-overview` is a first-class structured output for concise
+recap commands and morning summary decision, `summary week-overview` is a first-class structured output for concise
 weekly recaps and localized agent rendering.
 
 ## Scheduling
@@ -79,17 +79,17 @@ weekly recaps and localized agent rendering.
 `ouraclaw-cli` can manage OpenClaw cron jobs directly through `schedule setup`, `schedule status`, `schedule disable`,
 and `schedule migrate-from-ouraclaw-plugin`.
 
-Three schedule types are supported:
+Two schedule types are supported:
 
-- fixed-time morning recap
+- morning summary watcher
 - fixed-time evening recap
-- optimized morning watcher
 
-The optimized watcher is a repeated cron window rather than a single time. It can run multiple times between a start
-and end time so the user can be notified as soon as Oura data is ready. When the watcher interval cannot be expressed
-as a single cron expression without drifting outside the requested window, the CLI stores multiple watcher cron job IDs
-and manages them as one logical schedule.
+The morning summary watcher is a repeated cron window rather than a single time, though users can set the same start
+and end time for one morning check. It can run multiple times between a start and end time so the user can be notified
+as soon as Oura data is ready. When the watcher interval cannot be expressed as a single cron expression without
+drifting outside the requested window, the CLI stores multiple morning cron job IDs and manages them as one logical
+schedule.
 
 All managed schedules use the shipped Oura skill in `skills/oura/`, inject the configured delivery language, and direct
-the agent to send to the configured OpenClaw channel and target. Optimized watcher jobs also instruct the agent to
+the agent to send to the configured OpenClaw channel and target. Morning summary jobs also instruct the agent to
 confirm delivery only after a successful send.

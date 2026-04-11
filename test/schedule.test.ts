@@ -16,7 +16,7 @@ vi.mock('node:fs', () => ({
 }));
 
 import {
-  buildOptimizedWatcherCronExpressions,
+  buildMorningCronExpressions,
   createOrReplaceScheduleJobs,
   findLegacyOuraClawJobs,
   getConfiguredChannelTargets,
@@ -37,14 +37,12 @@ describe('schedule helpers', () => {
     vi.clearAllMocks();
   });
 
-  test('builds a single hourly watcher expression for the default window', () => {
-    expect(buildOptimizedWatcherCronExpressions('08:00', '13:00', 60)).toEqual([
-      '0 8,9,10,11,12,13 * * *',
-    ]);
+  test('builds a single hourly morning expression for the default window', () => {
+    expect(buildMorningCronExpressions('08:00', '13:00', 60)).toEqual(['0 8,9,10,11,12,13 * * *']);
   });
 
-  test('splits watcher expressions when the interval creates multiple minute buckets', () => {
-    expect(buildOptimizedWatcherCronExpressions('08:00', '13:00', 30)).toEqual([
+  test('splits morning expressions when the interval creates multiple minute buckets', () => {
+    expect(buildMorningCronExpressions('08:00', '13:00', 30)).toEqual([
       '0 8,9,10,11,12,13 * * *',
       '30 8,9,10,11,12 * * *',
     ]);
@@ -63,7 +61,7 @@ describe('schedule helpers', () => {
     ]);
   });
 
-  test('derives schedule defaults from legacy plugin config', () => {
+  test('derives canonical morning schedule defaults from legacy plugin config', () => {
     expect(
       getLegacyScheduleDefaults({
         preferredChannel: 'signal',
@@ -76,44 +74,43 @@ describe('schedule helpers', () => {
     ).toEqual({
       channel: 'signal',
       target: '+421',
-      morningTime: '07:30',
       morningEnabled: true,
+      morningStart: '07:30',
+      morningEnd: '07:30',
       eveningTime: '21:15',
       eveningEnabled: true,
       timezone: 'Europe/Bratislava',
     });
   });
 
-  test('renders optimized watcher prompts with language and confirmation instructions', () => {
-    const prompt = renderCronPrompt('optimizedWatcher', {
+  test('renders morning prompts with canonical command and confirmation instructions', () => {
+    const prompt = renderCronPrompt('morning', {
       channel: 'signal',
       target: '+421',
       deliveryLanguage: 'Slovak',
-      optimizedWatcherDeliveryMode: 'unusual-only',
+      morningDeliveryMode: 'unusual-only',
     });
 
-    expect(prompt).toContain('Morning Optimized Template');
-    expect(prompt).toContain('summary morning-optimized-confirm --delivery-key <deliveryKey>');
+    expect(prompt).toContain('Morning Summary Template');
+    expect(prompt).toContain('summary morning-confirm --delivery-key <deliveryKey>');
     expect(prompt).toContain('send nothing and produce no output at all');
     expect(prompt).toContain('channel "signal"');
     expect(prompt).toContain('target "+421"');
     expect(prompt).toContain('Delivery language: Slovak.');
   });
 
-  test('renders daily-when-ready watcher prompts with the delivery mode command', () => {
-    const prompt = renderCronPrompt('optimizedWatcher', {
+  test('renders daily-when-ready morning prompts with the canonical delivery mode command', () => {
+    const prompt = renderCronPrompt('morning', {
       channel: 'signal',
       target: '+421',
       deliveryLanguage: 'English',
-      optimizedWatcherDeliveryMode: 'daily-when-ready',
+      morningDeliveryMode: 'daily-when-ready',
     });
 
-    expect(prompt).toContain('summary morning-optimized --delivery-mode daily-when-ready');
+    expect(prompt).toContain('summary morning --delivery-mode daily-when-ready');
     expect(prompt).toContain('send nothing and produce no output at all');
-    expect(prompt).toContain('ready-day branch of this optimized watcher');
-    expect(prompt).toContain('Use the nested morningSummary payload only as extra context');
     expect(prompt).toContain(
-      'summary morning-optimized-confirm --delivery-mode daily-when-ready --delivery-key <deliveryKey>'
+      'summary morning-confirm --delivery-mode daily-when-ready --delivery-key <deliveryKey>'
     );
   });
 
@@ -187,7 +184,8 @@ describe('schedule helpers', () => {
       channel: 'signal',
       target: '+421111',
       morningEnabled: true,
-      morningTime: '07:30',
+      morningStart: '07:30',
+      morningEnd: '07:30',
       timezone: 'Europe/Bratislava',
     });
     expect(removal).toEqual({
@@ -227,34 +225,30 @@ describe('schedule helpers', () => {
       channel: 'signal',
       target: '+421111',
       morningEnabled: true,
-      morningTime: '07:30',
+      morningDeliveryMode: 'unusual-only',
+      morningStart: '08:00',
+      morningEnd: '13:00',
+      morningIntervalMinutes: 30,
       eveningEnabled: false,
       eveningTime: '21:00',
-      optimizedWatcherEnabled: true,
-      optimizedWatcherDeliveryMode: 'unusual-only',
-      optimizedWatcherStart: '08:00',
-      optimizedWatcherEnd: '13:00',
-      optimizedWatcherIntervalMinutes: 30,
-      morningCronJobId: 'old-morning',
-      optimizedWatcherCronJobIds: ['old-optimized'],
+      morningCronJobIds: ['old-morning', 'old-optimized'],
     });
 
-    expect(result.morningCronJobId).toBe('ouraclaw-cli Morning Summary-id');
-    expect(result.optimizedWatcherCronJobIds).toEqual([
-      'ouraclaw-cli Morning Optimized #1-id',
-      'ouraclaw-cli Morning Optimized #2-id',
+    expect(result.morningCronJobIds).toEqual([
+      'ouraclaw-cli Morning Summary #1-id',
+      'ouraclaw-cli Morning Summary #2-id',
     ]);
     expect(execFileSync).toHaveBeenCalledWith(
       'openclaw',
-      expect.arrayContaining(['cron', 'add', '--name', 'ouraclaw-cli Morning Summary']),
+      expect.arrayContaining(['cron', 'add', '--name', 'ouraclaw-cli Morning Summary #1']),
       expect.objectContaining({ encoding: 'utf8', timeout: 10000 })
     );
   });
 
   test('removes managed jobs and reports schedule status', () => {
     let jobs = [
-      { id: 'morning-id', name: 'ouraclaw-cli Morning Summary' },
-      { id: 'optimized-id', name: 'ouraclaw-cli Morning Optimized' },
+      { id: 'morning-1', name: 'ouraclaw-cli Morning Summary #1' },
+      { id: 'morning-2', name: 'ouraclaw-cli Morning Summary #2' },
       { id: 'legacy-id', name: 'OuraClaw Evening Summary' },
     ];
     execFileSync.mockImplementation((_cmd: string, args: string[]) => {
@@ -273,12 +267,11 @@ describe('schedule helpers', () => {
 
     expect(
       removeManagedScheduleJobs({
-        morningCronJobId: 'morning-id',
+        morningCronJobIds: ['morning-1', 'morning-2'],
         eveningCronJobId: undefined,
-        optimizedWatcherCronJobIds: ['optimized-id'],
       })
     ).toEqual({
-      removedIds: ['morning-id', 'optimized-id'],
+      removedIds: ['morning-1', 'morning-2'],
     });
 
     const status = getScheduleStatus({
@@ -288,16 +281,13 @@ describe('schedule helpers', () => {
       channel: 'signal',
       target: '+421111',
       morningEnabled: true,
-      morningTime: '07:30',
+      morningDeliveryMode: 'unusual-only',
+      morningStart: '08:00',
+      morningEnd: '13:00',
+      morningIntervalMinutes: 60,
+      morningCronJobIds: ['morning-1', 'morning-2'],
       eveningEnabled: false,
       eveningTime: '21:00',
-      optimizedWatcherEnabled: false,
-      optimizedWatcherDeliveryMode: 'unusual-only',
-      optimizedWatcherStart: '08:00',
-      optimizedWatcherEnd: '13:00',
-      optimizedWatcherIntervalMinutes: 60,
-      morningCronJobId: 'morning-id',
-      optimizedWatcherCronJobIds: [],
     });
 
     expect(status.existingManagedJobs).toEqual([]);
@@ -309,9 +299,8 @@ describe('schedule helpers', () => {
   test('exports managed and legacy job name helpers', () => {
     expect(getLegacyJobNames()).toContain('ouraclaw-morning');
     expect(getManagedJobNames()).toEqual({
-      morning: 'ouraclaw-cli Morning Summary',
+      morningPrefix: 'ouraclaw-cli Morning Summary',
       evening: 'ouraclaw-cli Evening Summary',
-      optimizedWatcherPrefix: 'ouraclaw-cli Morning Optimized',
     });
   });
 });

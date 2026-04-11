@@ -5,16 +5,16 @@ messages by hand.
 
 ## Supported Schedule Types
 
-- standard morning recap at one fixed time
+- morning summary watcher over a single check or repeated morning window
 - evening recap at one fixed time
-- optimized morning watcher over a repeated morning window
 
-The optimized watcher exists because Oura data does not always sync at the same time. Instead of guessing one perfect
-morning trigger, the watcher can check multiple times, for example every hour from `08:00` through `13:00`, and send
-the alert as soon as data is ready and the optimized routine decides attention is needed.
+The morning summary watcher exists because Oura data does not always sync at the same time. Instead of guessing one
+perfect morning trigger, the watcher can check multiple times, for example every hour from `08:00` through `13:00`,
+and send the summary as soon as data is ready and the morning routine decides it should send.
 
-That same watcher can also work well for users who want a morning message every day. Instead of sending at a fixed
-clock time before Oura has finished syncing, it can wait for real same-day data and then send once the data is ready.
+That same watcher also works well for users who want a morning message every day. Instead of sending at a fixed clock
+time before Oura has finished syncing, it can wait for real same-day data and then send once the data is ready. Set
+the same start and end time if you want a single morning check.
 
 ## Setup
 
@@ -34,7 +34,7 @@ The walkthrough:
    default.
 5. Asks for delivery language. Default is `English`.
 6. Asks which schedule types to enable.
-7. For the optimized watcher, asks whether it should:
+7. For the morning summary watcher, asks whether it should:
    - alert only when attention is needed
    - send every day once today's Oura data is ready
 8. Asks for timezone and schedule times.
@@ -46,29 +46,28 @@ The walkthrough:
 Scheduled jobs store a delivery language in CLI state and inject it into the cron prompt for the Oura skill. This means
 you can keep the default `English` or choose another language such as `Slovak` without rewriting prompts by hand.
 
-## Optimized Watcher Behavior
+## Morning Summary Watcher Behavior
 
-The optimized watcher runs `summary morning-optimized` repeatedly inside the configured window.
+The morning summary watcher runs `summary morning` repeatedly inside the configured window.
 
 - If `dataReady` is `false`, nothing is sent and the agent should produce no output at all.
 - In `Alert only when attention is needed` mode:
   - `shouldSend: false` means nothing is sent and no skip/diagnostic message should be posted.
-  - `shouldSend: true` sends the optimized morning alert.
+  - `shouldSend: true` sends the morning summary with alert emphasis.
 - In `Send every day once today's Oura data is ready` mode:
   - `shouldSend: false` still means nothing is sent because data is not ready, and no skip/diagnostic message should be posted.
-  - `deliveryType: "optimized-alert"` sends the optimized morning alert when attention is needed.
-  - `deliveryType: "morning-summary"` sends a normal morning recap once today's data is ready without an alert. It is
-    the ready-day branch of the optimized watcher, not a separate scheduled delivery path.
+  - `shouldSend: true` sends the same morning summary contract on both calm and attention days. Calm days use neutral
+    wording; attention days use stronger alert wording.
 - After a successful send, the agent confirms delivery with
-  `ouraclaw-cli summary morning-optimized-confirm --delivery-key <deliveryKey>`.
+  `ouraclaw-cli summary morning-confirm --delivery-key <deliveryKey>`.
 
 That confirmation matters because it lets later watcher runs on the same day suppress duplicates cleanly.
 
-## Fixed Time vs Optimized Watcher
+## Single Check vs Morning Window
 
-Use a fixed morning recap when the most important thing is a specific clock time.
+Use a single morning check when the most important thing is one specific time.
 
-Use the optimized watcher when the most important thing is using real same-day Oura data:
+Use the repeated morning window when the most important thing is using real same-day Oura data:
 
 - it can notify as soon as Oura syncs
 - it avoids firing too early when today's data is still missing

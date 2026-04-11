@@ -30,14 +30,12 @@ export const DEFAULT_SCHEDULE_CONFIG = {
   timezone: 'UTC',
   deliveryLanguage: 'English',
   morningEnabled: false,
-  morningTime: '07:00',
+  morningDeliveryMode: 'unusual-only',
+  morningStart: '08:00',
+  morningEnd: '13:00',
+  morningIntervalMinutes: 60,
   eveningEnabled: false,
   eveningTime: '21:00',
-  optimizedWatcherEnabled: false,
-  optimizedWatcherDeliveryMode: 'unusual-only',
-  optimizedWatcherStart: '08:00',
-  optimizedWatcherEnd: '13:00',
-  optimizedWatcherIntervalMinutes: 60,
 } as const;
 
 export const BASELINE_METRICS = [

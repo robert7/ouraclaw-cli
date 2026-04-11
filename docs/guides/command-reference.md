@@ -79,14 +79,14 @@ Useful schedule keys include:
 
 - `schedule.deliveryLanguage`
 - `schedule.timezone`
-- `schedule.optimizedWatcherDeliveryMode`
+- `schedule.morningDeliveryMode`
 
 ### `ouraclaw-cli schedule setup`
 
 Interactive scheduler walkthrough. Detects legacy OuraClaw config and cron jobs, asks for a delivery channel first,
 offers known targets as shortcuts while still allowing manual target entry, then collects delivery language, timezone,
-which schedules to enable, and the optimized watcher delivery mode before creating or replacing the managed OpenClaw
-cron jobs.
+which schedules to enable, and the morning summary delivery mode before creating or replacing the managed OpenClaw cron
+jobs.
 
 ### `ouraclaw-cli schedule status`
 
@@ -102,24 +102,19 @@ Removes all CLI-managed OpenClaw cron jobs and marks scheduling as disabled with
 Inspects the old OuraClaw plugin config and known legacy cron jobs, removes the old cron jobs, and imports useful
 schedule defaults into current CLI state without creating new jobs.
 
-### `ouraclaw-cli summary morning`
+### `ouraclaw-cli summary morning [--delivery-mode unusual-only|daily-when-ready] [--text]`
 
-Builds the standard morning recap. Default output is JSON; `--text` prints the sendable message directly.
+Returns JSON for the canonical morning summary flow. The result includes `dataReady`, `shouldAlert`, `shouldSend`,
+optional `deliveryKey`, `deliveryMode`, `today`, optional `baseline`, `alertMetrics`, `alertReasons`, `skipReasons`,
+`metricSignals`, and optional `message` for sendable results.
 
-### `ouraclaw-cli summary morning-optimized [--delivery-mode unusual-only|daily-when-ready]`
-
-Returns JSON for the optimized alerting flow. The result includes `dataReady`, `shouldAlert`, `shouldSend`, optional
-`deliveryKey`, `deliveryMode`, optional `deliveryType`, `today`, optional `baseline`, `alertMetrics`, `alertReasons`,
-`skipReasons`, and `metricSignals`.
-
-In `daily-when-ready` mode, a ready day without an alert can still return `shouldSend: true` with
-`deliveryType: "morning-summary"` plus a nested `morningSummary` payload. `metricSignals` remains populated so the
-sender can display all six metrics and mark worse-than-baseline values. This `morning-summary` value is still part of
-the optimized watcher contract, not a separate scheduling path.
+In `daily-when-ready` mode, a ready day without an alert can still return `shouldSend: true` with a calm morning
+summary message. The result shape stays the same on both calm and attention days; there is no separate morning
+delivery type branch.
 
 ### `ouraclaw-cli summary week-overview [--start-date YYYY-MM-DD] [--end-date YYYY-MM-DD]`
 
-Builds a seven-day JSON overview using the same attention logic as `summary morning-optimized`. With no flags, the
+Builds a seven-day JSON overview using the same attention logic as `summary morning`. With no flags, the
 range is the last seven days including today. With only `--start-date`, the range is that date plus the next six days.
 With only `--end-date`, the range is that date and the previous six days. With both flags, the inclusive range must be
 exactly seven days.
@@ -130,10 +125,10 @@ The result includes `period`, `baselineStatus`, `metricOrder`, `overview`, and `
 `summaryLine` omits missing values and prefixes attention metrics with `⚠️`. For non-English summaries, render from
 `metricOrder`, `metrics`, and `attentionMetrics` instead of translating `summaryLine`.
 
-### `ouraclaw-cli summary morning-optimized-confirm --delivery-key <deliveryKey> [--delivery-mode unusual-only|daily-when-ready]`
+### `ouraclaw-cli summary morning-confirm --delivery-key <deliveryKey> [--delivery-mode unusual-only|daily-when-ready]`
 
-Confirms that an optimized morning alert was actually delivered. This stores same-day delivery state so later
-`summary morning-optimized` runs can suppress duplicates for the rest of the day.
+Confirms that a morning summary delivery was actually delivered. This stores same-day delivery state so later
+`summary morning` runs can suppress duplicates for the rest of the day.
 
 ### `ouraclaw-cli summary evening`
 

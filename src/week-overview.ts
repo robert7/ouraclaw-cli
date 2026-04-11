@@ -1,13 +1,13 @@
 import { BASELINE_METRICS } from './config';
 import { formatDuration } from './date-utils';
-import { evaluateMorningOptimized } from './morning-optimized';
+import { evaluateMorning } from './morning';
 import {
   BaselineConfig,
   BaselineMetricKey,
   BaselineSnapshot,
   FixedThresholdConfig,
   MetricSignal,
-  MorningOptimizedToday,
+  MorningToday,
   OuraRecord,
   WeekOverviewDay,
   WeekOverviewMetric,
@@ -35,7 +35,7 @@ const metricUnits: Record<BaselineMetricKey, WeekOverviewMetric['unit']> = {
 
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-function buildFallbackSignals(today: MorningOptimizedToday): MetricSignal[] {
+function buildFallbackSignals(today: MorningToday): MetricSignal[] {
   return BASELINE_METRICS.map((metric) => ({
     metric,
     value: today[metric] ?? null,
@@ -131,7 +131,7 @@ export function buildWeekOverview(input: {
   baselineStatus: WeekOverviewResult['baselineStatus'];
 }): WeekOverviewResult {
   const recordsByDay = new Map(input.records.map((record) => [record.day, record]));
-  const todayValues: MorningOptimizedToday[] = input.days.map((day) => {
+  const todayValues: MorningToday[] = input.days.map((day) => {
     const record = recordsByDay.get(day);
     return {
       day,
@@ -145,7 +145,7 @@ export function buildWeekOverview(input: {
   });
 
   const days: WeekOverviewDay[] = todayValues.map((today) => {
-    const result = evaluateMorningOptimized({
+    const result = evaluateMorning({
       today,
       thresholds: input.thresholds,
       baselineConfig: input.baselineConfig,

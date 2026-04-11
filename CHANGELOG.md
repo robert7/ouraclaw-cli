@@ -13,12 +13,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Clarified optimized watcher prompts and docs so `shouldSend: false` means absolute silence with no skip message, and
-  `deliveryType: "morning-summary"` is documented as the ready-day branch of the optimized watcher rather than a
-  separate schedule.
+- Collapsed the old split morning surfaces into one canonical `summary morning` flow with `summary morning-confirm`,
+  removed the separate `summary morning-optimized` contract, and rewrote the schedule/skill/docs around a single
+  morning summary watcher.
 - Changed `schedule setup` to ask for the delivery channel first and let known channels like Discord keep their saved
   target as a shortcut while still accepting a manually entered target override.
-- Reworked `summary morning-optimized` around attention signals: replaced `ordinary`, `breachedMetrics`, and generic
+- Reworked the canonical morning flow around attention signals: replaced `ordinary`, `breachedMetrics`, and generic
   `reasons` with `shouldAlert`, `alertMetrics`, `alertReasons`, `skipReasons`, and per-metric `metricSignals`.
 - Changed optimized baseline evaluation to be direction-aware so better HRV or lower resting heart rate no longer
   triggers an alert, while worse primary metrics can still alert by themselves.
@@ -49,14 +49,14 @@ All notable changes to this project will be documented in this file.
 - Added first-class OpenClaw scheduling commands for setup, status, disable, and legacy plugin cron migration.
 - Added delivery-language-aware scheduling, including a repeated optimized morning watcher that can re-check until
   today's Oura data is ready.
-- Added a delivery confirmation handshake for `summary morning-optimized` so successful sends can suppress duplicate
+- Added a delivery confirmation handshake for the morning summary flow so successful sends can suppress duplicate
   same-day notifications.
 - Added migration and setup guides for users moving from the legacy OpenClaw plugin and configuring Oura application
   credentials.
 
 ### Changed
 
-- Expanded `summary morning-optimized` to evaluate all six morning decision metrics against the personalized baseline,
+- Expanded the morning summary flow to evaluate all six morning decision metrics against the personalized baseline,
   with configurable percentile bands and breached-metric counts.
 - Added an optimized watcher delivery mode that can either alert only on unusual days or send every day once today's
   Oura data is ready.
@@ -73,7 +73,7 @@ All notable changes to this project will be documented in this file.
 - Added hardened OAuth handling with `state` validation, explicit localhost callback binding, and timeout cleanup.
 - Added local state storage at `$HOME/.ouraclaw-cli/ouraclaw-cli.json`, including migration from the legacy OpenClaw
   plugin config path and private file-permission enforcement.
-- Added baseline and threshold decision logic for `summary morning-optimized`.
+- Added baseline and threshold decision logic for the morning summary flow.
 - Added packaged OpenClaw skill assets under `skills/` plus a ClawHub upload helper.
 
 ### Changed

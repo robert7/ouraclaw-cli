@@ -24,8 +24,7 @@ metadata:
 
 # Oura via ouraclaw-cli
 
-Use this skill when the user wants Oura Ring data, a morning recap, an evening recap, or an optimized morning alerting
-decision.
+Use this skill when the user wants Oura Ring data, a morning summary, an evening recap, or a weekly overview.
 
 ## Preconditions
 
@@ -44,7 +43,7 @@ decision.
 
 - JSON is the default output for all commands.
 - Use JSON when the command result needs machine reasoning or a formatted channel message.
-- For scheduled summaries and optimized alerts, use the JSON output and compose the final channel message from the
+- For scheduled summaries and morning sends, use the JSON output and compose the final channel message from the
   template in this skill.
 
 ## Common Commands
@@ -54,9 +53,9 @@ decision.
   - `ouraclaw-cli fetch daily_sleep`
   - `ouraclaw-cli fetch sleep --start-date 2026-03-12 --end-date 2026-03-13`
 - Manual baseline rebuild: `ouraclaw-cli baseline rebuild`
-- Morning recap data: `ouraclaw-cli summary morning`
+- Morning summary data: `ouraclaw-cli summary morning`
 - Evening recap data: `ouraclaw-cli summary evening`
-- Morning optimized decision: `ouraclaw-cli summary morning-optimized`
+- Morning delivery confirmation: `ouraclaw-cli summary morning-confirm --delivery-key <deliveryKey>`
 - Seven-day overview: `ouraclaw-cli summary week-overview`
 
 ## Date Rules
@@ -156,41 +155,58 @@ When producing a scheduled summary or alert, follow these rules:
 
 ## Morning Summary Template
 
-When delivering a standard morning summary, run:
+When deciding whether a morning summary should be sent, run:
 
 `ouraclaw-cli summary morning`
 
-Use the returned JSON fields `day`, `dailySleep`, `dailyReadiness`, `dailyActivity`, `dailyStress`, `sleepRecord`, and
-`missing` as the source data. Do not fall back to yesterday's data. If required fields are missing or pending, reflect
-that plainly instead of inventing substitute values.
+For a watcher configured to send every day once today's data is ready, run:
 
-Send only the formatted summary in the delivery language, with no extra preamble or commentary.
+`ouraclaw-cli summary morning --delivery-mode daily-when-ready`
+
+Interpret the JSON result as the source of truth:
+
+- If `dataReady` is `false`, send nothing and produce no output at all.
+- If `shouldSend` is `false`, send nothing and produce no output at all. Do not post a status message, explanation,
+  acknowledgment, or skip notice.
+- If `shouldSend` is `true`, compose the final channel message from this template in the delivery language using
+  `today`, `shouldAlert`, `baselineStatus`, `alertMetrics`, `alertReasons`, and `metricSignals`.
+- If `baselineStatus` is `"refresh_failed"`, trust the CLI decision anyway; it already fell back to fixed thresholds.
+- After the agent successfully delivers the summary, it must confirm delivery by running
+  `ouraclaw-cli summary morning-confirm --delivery-key <deliveryKey>`.
+- If the original command used `--delivery-mode daily-when-ready`, the confirmation command must use the same
+  `--delivery-mode daily-when-ready`.
+- Never confirm delivery if the send failed or was skipped.
+
+Send only the formatted summary, with no extra preamble or commentary.
 
 Format rules:
 
-- Start with "Good morning!" and today's date in the delivery language.
-- **Sleep**: score with label, total sleep time, and key overnight details. From `sleepRecord`, include lowest resting
-  heart rate, average overnight heart rate, average HRV, and deep/REM/light durations when available.
-- **Readiness**: score with label, body temperature deviation, and the most relevant contributor context when available.
-- **Activity**: use today's `dailyActivity` only. If activity is missing or pending, say so directly.
-- **Stress**: mention the current summary when available. If stress data is missing, say so briefly or skip it.
-- Keep it concise, roughly 8-10 lines max.
+- Start with a brief morning greeting and today's date in the delivery language.
+- If `shouldAlert` is `true`, explain briefly that today's Oura data has one or more metrics that need attention.
+- If `shouldAlert` is `false`, use neutral daily-recap wording. Do not say the day needs attention.
+- Show all six morning metrics when present: sleep score, readiness score, temperature deviation, HRV, lowest heart
+  rate, and total sleep duration.
+- Mark metrics where `metricSignals[].attention` is `true`. Use `⚠️` on WhatsApp, Telegram, Discord, Slack, and
+  WebChat/default. Use `ATTENTION` on plain-text channels.
+- Treat `severity: "better"` signals as positive or neutral context, not warnings.
+- If baseline or fixed-threshold reasoning contributed, mention it briefly in plain language using `alertReasons`.
+- Keep it concise, roughly 5-8 lines max.
 - Bold category labels and scores on channels that support bold. On plain text channels, do not use formatting markers.
+- Treat the CLI `message` field as fallback context only; do not send it verbatim when this template can be filled from
+  JSON.
 
 Example tone (plain text, structure only):
 
 ```text
-Good morning! Here's your recap for Monday, Jan 27.
+Good morning! Here's your Oura summary for Monday, Jan 27.
 
-Sleep: 82 (Good) — 7h 12m total
-Deep 58m | REM 1h 24m | Light 4h 50m
-Lowest HR 52 bpm | Avg HR 58 bpm | HRV 42 ms
+Today's data looks a bit outside your usual range.
 
-Readiness: 78 (Good)
-Body temp +0.1C | Recovery slightly below usual
+Sleep: ⚠️ 72 | Total 6h 15m
+Readiness: ⚠️ 68 | Body temp +0.2C
+HRV: 39 ms | Lowest HR: 52 bpm
 
-Activity: 74 (Good) — 8,241 steps, 312 active cal
-Stress: normal range
+Attention: sleep and readiness are below your usual morning range.
 ```
 
 ## Evening Summary Template
@@ -225,68 +241,6 @@ Readiness: 78 (Good) | Stress: normal range
 Last night's sleep: 82 (Good)
 
 Nice active day. Wind down soon and set tomorrow up properly.
-```
-
-## Morning Optimized Template
-
-When deciding whether an optimized morning delivery should be sent, run:
-
-`ouraclaw-cli summary morning-optimized`
-
-For a watcher configured to send every day once today's data is ready, run:
-
-`ouraclaw-cli summary morning-optimized --delivery-mode daily-when-ready`
-
-Interpret the JSON result as the source of truth:
-
-- If `dataReady` is `false`, send nothing and produce no output at all.
-- If `shouldSend` is `false`, send nothing and produce no output at all. Do not post a status message, explanation,
-  acknowledgment, or skip notice.
-- If `shouldSend` is `true` and `deliveryType` is `"optimized-alert"`, compose the final channel message from this
-  template in the delivery language using `today`, `baselineStatus`, `alertMetrics`, `alertReasons`, and
-  `metricSignals`.
-- If `shouldSend` is `true` and `deliveryType` is `"morning-summary"`, compose a daily ready message from this template
-  using `today`, `metricSignals`, and the nested `morningSummary` payload for extra context. Treat this as the
-  ready-day branch of the optimized watcher, not as a separate scheduler.
-- If `baselineStatus` is `"refresh_failed"`, trust the CLI decision anyway; it already fell back to fixed thresholds.
-- After the agent successfully delivers the alert, it must confirm delivery by running
-  `ouraclaw-cli summary morning-optimized-confirm --delivery-key <deliveryKey>`.
-- If the original command used `--delivery-mode daily-when-ready`, the confirmation command must use the same
-  `--delivery-mode daily-when-ready`.
-- Never confirm delivery if the send failed or was skipped.
-
-Send only the formatted alert, with no extra preamble or commentary.
-
-Format rules:
-
-- Start with a brief morning greeting and today's date in the delivery language.
-- If `shouldAlert` is `true`, explain briefly that today's Oura data has one or more metrics that need attention.
-- If `shouldAlert` is `false`, use neutral daily-recap wording. Do not say the day needs attention.
-- Show all six optimized metrics when present: sleep score, readiness score, temperature deviation, HRV, lowest heart
-  rate, and total sleep duration.
-- Mark metrics where `metricSignals[].attention` is `true`. Use `⚠️` on WhatsApp, Telegram, Discord, Slack, and
-  WebChat/default. Use `ATTENTION` on plain-text channels.
-- Treat `severity: "better"` signals as positive or neutral context, not warnings.
-- If baseline or fixed-threshold reasoning contributed, mention it briefly in plain language using `alertReasons`.
-- Keep it concise, roughly 5-8 lines max.
-- Bold category labels and scores on channels that support bold. On plain text channels, do not use formatting markers.
-- Treat the CLI `message` field as fallback context only; do not send it verbatim when this template can be filled from
-  JSON.
-
-Example tone (plain text, structure only):
-
-```text
-Good morning! Here's your Oura check for Monday, Jan 27.
-
-Today's data looks a bit outside your usual range.
-
-Sleep: ⚠️ 72 (Good) | Total 6h 15m
-Readiness: ⚠️ 68 (Fair) | Body temp +0.2C
-HRV: 39 ms | Lowest HR: 52 bpm
-
-Attention: sleep and readiness are below your usual morning range.
-
-Worth taking today a bit gentler if you can.
 ```
 
 ## Week Overview Template

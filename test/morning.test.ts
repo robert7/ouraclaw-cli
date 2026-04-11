@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
 
 import { defaultBaselineConfig } from '../src/baseline';
-import { evaluateMorningOptimized } from '../src/morning-optimized';
-import { BaselineSnapshot, MorningOptimizedToday } from '../src/types';
+import { evaluateMorning } from '../src/morning';
+import { BaselineSnapshot, MorningToday } from '../src/types';
 import { defaultThresholds } from '../src/thresholds';
 
 const baseline: BaselineSnapshot = {
@@ -21,7 +21,7 @@ const baseline: BaselineSnapshot = {
   },
 };
 
-const readyToday: MorningOptimizedToday = {
+const readyToday: MorningToday = {
   day: '2026-03-13',
   sleepScore: 82,
   readinessScore: 80,
@@ -31,9 +31,9 @@ const readyToday: MorningOptimizedToday = {
   totalSleepDuration: 28000,
 };
 
-describe('morning-optimized', () => {
+describe('morning', () => {
   test('returns not ready with skip reasons when required fields are missing', () => {
-    const result = evaluateMorningOptimized({
+    const result = evaluateMorning({
       today: {
         day: '2026-03-13',
         sleepScore: null,
@@ -52,7 +52,7 @@ describe('morning-optimized', () => {
   });
 
   test('alerts when fixed thresholds fail', () => {
-    const result = evaluateMorningOptimized({
+    const result = evaluateMorning({
       today: {
         ...readyToday,
         sleepScore: 70,
@@ -68,7 +68,6 @@ describe('morning-optimized', () => {
     expect(result.dataReady).toBe(true);
     expect(result.shouldAlert).toBe(true);
     expect(result.shouldSend).toBe(true);
-    expect(result.deliveryType).toBe('optimized-alert');
     expect(result.deliveryKey).toBeDefined();
     expect(result.alertMetrics).toEqual(
       expect.arrayContaining(['sleepScore', 'readinessScore', 'temperatureDeviation'])
@@ -76,11 +75,11 @@ describe('morning-optimized', () => {
     expect(result.alertReasons).toEqual(
       expect.arrayContaining(['sleep_below_threshold', 'readiness_below_threshold'])
     );
-    expect(result.message).toContain('needs attention');
+    expect(result.message).toContain('attention signals');
   });
 
   test('does not alert when HRV is better than baseline and resting heart rate is better than baseline', () => {
-    const result = evaluateMorningOptimized({
+    const result = evaluateMorning({
       today: {
         ...readyToday,
         averageHrv: 50,
@@ -115,7 +114,7 @@ describe('morning-optimized', () => {
   });
 
   test('alerts when a primary metric is worse than baseline', () => {
-    const result = evaluateMorningOptimized({
+    const result = evaluateMorning({
       today: {
         ...readyToday,
         totalSleepDuration: 26000,
@@ -129,18 +128,10 @@ describe('morning-optimized', () => {
     expect(result.shouldAlert).toBe(true);
     expect(result.alertMetrics).toEqual(['totalSleepDuration']);
     expect(result.alertReasons).toEqual(['baseline_total_sleep_duration_low']);
-    expect(result.metricSignals).toContainEqual(
-      expect.objectContaining({
-        metric: 'totalSleepDuration',
-        direction: 'below_baseline',
-        severity: 'worse',
-        attention: true,
-      })
-    );
   });
 
   test('does not alert when only one supporting metric is worse than baseline', () => {
-    const result = evaluateMorningOptimized({
+    const result = evaluateMorning({
       today: {
         ...readyToday,
         averageHrv: 30,
@@ -155,18 +146,10 @@ describe('morning-optimized', () => {
     expect(result.shouldSend).toBe(false);
     expect(result.alertMetrics).toEqual([]);
     expect(result.alertReasons).toEqual([]);
-    expect(result.metricSignals).toContainEqual(
-      expect.objectContaining({
-        metric: 'averageHrv',
-        direction: 'below_baseline',
-        severity: 'worse',
-        attention: true,
-      })
-    );
   });
 
   test('alerts when two supporting metrics are worse than baseline', () => {
-    const result = evaluateMorningOptimized({
+    const result = evaluateMorning({
       today: {
         ...readyToday,
         averageHrv: 30,
@@ -186,7 +169,7 @@ describe('morning-optimized', () => {
   });
 
   test('suppresses a sendable result after delivery was already confirmed today', () => {
-    const result = evaluateMorningOptimized({
+    const result = evaluateMorning({
       today: {
         ...readyToday,
         sleepScore: 70,
@@ -201,11 +184,12 @@ describe('morning-optimized', () => {
     expect(result.shouldSend).toBe(false);
     expect(result.alreadyDeliveredToday).toBe(true);
     expect(result.deliveryKey).toBeUndefined();
+    expect(result.message).toBeUndefined();
     expect(result.skipReasons[0]).toBe('already_delivered_today');
   });
 
-  test('daily-when-ready mode sends a morning summary on ready days without alerts', () => {
-    const result = evaluateMorningOptimized({
+  test('daily-when-ready mode sends a calm morning summary on ready days without alerts', () => {
+    const result = evaluateMorning({
       today: readyToday,
       thresholds: defaultThresholds(),
       baselineConfig: defaultBaselineConfig(),
@@ -217,17 +201,14 @@ describe('morning-optimized', () => {
     expect(result.dataReady).toBe(true);
     expect(result.shouldAlert).toBe(false);
     expect(result.shouldSend).toBe(true);
-    expect(result.deliveryType).toBe('morning-summary');
     expect(result.deliveryKey).toBeDefined();
+    expect(result.message).toContain('Nothing urgent stands out');
     expect(result.alertMetrics).toEqual([]);
     expect(result.metricSignals).toHaveLength(6);
-    expect(result).not.toHaveProperty('ordinary');
-    expect(result).not.toHaveProperty('breachedMetrics');
-    expect(result).not.toHaveProperty('reasons');
   });
 
-  test('daily-when-ready mode still returns optimized alerts when attention is needed', () => {
-    const result = evaluateMorningOptimized({
+  test('daily-when-ready mode still returns alert-oriented morning messages when attention is needed', () => {
+    const result = evaluateMorning({
       today: {
         ...readyToday,
         sleepScore: 70,
@@ -241,10 +222,8 @@ describe('morning-optimized', () => {
     });
 
     expect(result.shouldSend).toBe(true);
-    expect(result.deliveryType).toBe('optimized-alert');
+    expect(result.shouldAlert).toBe(true);
+    expect(result.message).toContain('attention signals');
     expect(result.alertMetrics).toEqual(expect.arrayContaining(['sleepScore', 'readinessScore']));
-    expect(result.alertReasons).toEqual(
-      expect.arrayContaining(['sleep_below_threshold', 'readiness_below_threshold'])
-    );
   });
 });

@@ -26,7 +26,7 @@ runtime in the final architecture.
 - `config get [key]`
 - `config set <key> <value>`
 - `summary morning`
-- `summary morning-optimized`
+- `summary morning-confirm`
 - `summary week-overview`
 - `summary evening`
 
@@ -47,8 +47,8 @@ runtime in the final architecture.
 - `src/oura-client.ts` - Oura API HTTP client
 - `src/thresholds.ts` - fixed-threshold defaults, validation, evaluation
 - `src/baseline.ts` - baseline windows, statistics, staleness checks
-- `src/summaries.ts` - morning/evening recap assembly
-- `src/morning-optimized.ts` - optimized morning decision logic
+- `src/summaries.ts` - evening recap assembly
+- `src/morning.ts` - canonical morning summary decision logic
 - `src/week-overview.ts` - seven-day optimized metric overview assembly
 - `src/output.ts` - JSON/text printing helpers
 

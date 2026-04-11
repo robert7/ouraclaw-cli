@@ -10,7 +10,13 @@ import {
   getStateDir,
   getStateFilePath,
 } from './config';
-import { BaselineConfig, LegacyOuraConfig, OuraCliState } from './types';
+import {
+  BaselineConfig,
+  LegacyOuraConfig,
+  OuraCliState,
+  OptimizedWatcherDeliveryMode,
+  ScheduleConfig,
+} from './types';
 
 export function defaultState(): OuraCliState {
   return {
@@ -30,14 +36,12 @@ export function defaultState(): OuraCliState {
       timezone: DEFAULT_SCHEDULE_CONFIG.timezone,
       deliveryLanguage: DEFAULT_SCHEDULE_CONFIG.deliveryLanguage,
       morningEnabled: DEFAULT_SCHEDULE_CONFIG.morningEnabled,
-      morningTime: DEFAULT_SCHEDULE_CONFIG.morningTime,
+      morningDeliveryMode: DEFAULT_SCHEDULE_CONFIG.morningDeliveryMode,
+      morningStart: DEFAULT_SCHEDULE_CONFIG.morningStart,
+      morningEnd: DEFAULT_SCHEDULE_CONFIG.morningEnd,
+      morningIntervalMinutes: DEFAULT_SCHEDULE_CONFIG.morningIntervalMinutes,
       eveningEnabled: DEFAULT_SCHEDULE_CONFIG.eveningEnabled,
       eveningTime: DEFAULT_SCHEDULE_CONFIG.eveningTime,
-      optimizedWatcherEnabled: DEFAULT_SCHEDULE_CONFIG.optimizedWatcherEnabled,
-      optimizedWatcherDeliveryMode: DEFAULT_SCHEDULE_CONFIG.optimizedWatcherDeliveryMode,
-      optimizedWatcherStart: DEFAULT_SCHEDULE_CONFIG.optimizedWatcherStart,
-      optimizedWatcherEnd: DEFAULT_SCHEDULE_CONFIG.optimizedWatcherEnd,
-      optimizedWatcherIntervalMinutes: DEFAULT_SCHEDULE_CONFIG.optimizedWatcherIntervalMinutes,
     },
     deliveries: {},
   };
@@ -82,44 +86,89 @@ function normalizeState(input: Partial<OuraCliState> | null): OuraCliState {
     return base;
   }
 
-  const morningOptimizedDelivery = input.deliveries?.morningOptimized;
-  const normalizedMorningOptimizedDelivery =
-    morningOptimizedDelivery?.lastDeliveredDay &&
-    morningOptimizedDelivery.lastDeliveredAt &&
-    morningOptimizedDelivery.lastDeliveryKey
+  const legacyDeliveries = (input.deliveries ?? {}) as Partial<OuraCliState['deliveries']> & {
+    morningOptimized?: {
+      lastDeliveredDay: string;
+      lastDeliveredAt: string;
+      lastDeliveryKey: string;
+    };
+  };
+  const scheduleInput = (input.schedule ?? {}) as Partial<ScheduleConfig> & {
+    morningTime?: string;
+    optimizedWatcherEnabled?: boolean;
+    optimizedWatcherDeliveryMode?: OptimizedWatcherDeliveryMode;
+    optimizedWatcherStart?: string;
+    optimizedWatcherEnd?: string;
+    optimizedWatcherIntervalMinutes?: number;
+    optimizedWatcherCronJobIds?: unknown[];
+  };
+
+  const morningDelivery = legacyDeliveries.morning ?? legacyDeliveries.morningOptimized;
+  const normalizedMorningDelivery =
+    morningDelivery?.lastDeliveredDay &&
+    morningDelivery.lastDeliveredAt &&
+    morningDelivery.lastDeliveryKey
       ? {
-          lastDeliveredDay: morningOptimizedDelivery.lastDeliveredDay,
-          lastDeliveredAt: morningOptimizedDelivery.lastDeliveredAt,
-          lastDeliveryKey: morningOptimizedDelivery.lastDeliveryKey,
+          lastDeliveredDay: morningDelivery.lastDeliveredDay,
+          lastDeliveredAt: morningDelivery.lastDeliveredAt,
+          lastDeliveryKey: morningDelivery.lastDeliveryKey,
         }
       : undefined;
-  const normalizedOptimizedWatcherCronJobIds = Array.isArray(
-    input.schedule?.optimizedWatcherCronJobIds
-  )
-    ? input.schedule?.optimizedWatcherCronJobIds.filter(
+  const normalizedMorningCronJobIds = Array.isArray(scheduleInput.morningCronJobIds)
+    ? scheduleInput.morningCronJobIds.filter(
         (id): id is string => typeof id === 'string' && id.length > 0
       )
     : undefined;
+  const normalizedLegacyOptimizedWatcherCronJobIds = Array.isArray(
+    scheduleInput.optimizedWatcherCronJobIds
+  )
+    ? scheduleInput.optimizedWatcherCronJobIds.filter(
+        (id): id is string => typeof id === 'string' && id.length > 0
+      )
+    : undefined;
+  const normalizedSchedule = {
+    ...base.schedule,
+    ...scheduleInput,
+  };
+  normalizedSchedule.morningDeliveryMode =
+    scheduleInput.morningDeliveryMode ??
+    scheduleInput.optimizedWatcherDeliveryMode ??
+    base.schedule.morningDeliveryMode;
+  normalizedSchedule.morningStart =
+    scheduleInput.morningStart ??
+    scheduleInput.optimizedWatcherStart ??
+    scheduleInput.morningTime ??
+    base.schedule.morningStart;
+  normalizedSchedule.morningEnd =
+    scheduleInput.morningEnd ??
+    scheduleInput.optimizedWatcherEnd ??
+    scheduleInput.morningTime ??
+    base.schedule.morningEnd;
+  normalizedSchedule.morningIntervalMinutes =
+    scheduleInput.morningIntervalMinutes ??
+    scheduleInput.optimizedWatcherIntervalMinutes ??
+    base.schedule.morningIntervalMinutes;
+  normalizedSchedule.morningEnabled =
+    scheduleInput.morningEnabled ??
+    scheduleInput.optimizedWatcherEnabled ??
+    base.schedule.morningEnabled;
+  if (normalizedMorningCronJobIds) {
+    normalizedSchedule.morningCronJobIds = normalizedMorningCronJobIds;
+  } else if (normalizedLegacyOptimizedWatcherCronJobIds) {
+    normalizedSchedule.morningCronJobIds = normalizedLegacyOptimizedWatcherCronJobIds;
+  }
 
   return {
     schemaVersion: SCHEMA_VERSION,
     auth: { ...base.auth, ...(input.auth ?? {}) },
     thresholds: { ...base.thresholds, ...(input.thresholds ?? {}) },
     baselineConfig: normalizeBaselineConfig(input.baselineConfig, base.baselineConfig),
-    schedule: {
-      ...base.schedule,
-      ...(input.schedule ?? {}),
-      ...(normalizedOptimizedWatcherCronJobIds
-        ? { optimizedWatcherCronJobIds: normalizedOptimizedWatcherCronJobIds }
-        : {}),
-    },
+    schedule: normalizedSchedule,
     baseline: input.baseline ?? base.baseline,
     deliveries: {
       ...base.deliveries,
       ...(input.deliveries ?? {}),
-      ...(normalizedMorningOptimizedDelivery
-        ? { morningOptimized: normalizedMorningOptimizedDelivery }
-        : {}),
+      ...(normalizedMorningDelivery ? { morning: normalizedMorningDelivery } : {}),
     },
   };
 }
@@ -190,10 +239,10 @@ export function updateState(patch: Partial<OuraCliState>): OuraCliState {
       ? {
           ...current.schedule,
           ...patch.schedule,
-          optimizedWatcherCronJobIds:
-            patch.schedule.optimizedWatcherCronJobIds === undefined
-              ? current.schedule.optimizedWatcherCronJobIds
-              : patch.schedule.optimizedWatcherCronJobIds.filter(
+          morningCronJobIds:
+            patch.schedule.morningCronJobIds === undefined
+              ? current.schedule.morningCronJobIds
+              : patch.schedule.morningCronJobIds.filter(
                   (id): id is string => typeof id === 'string' && id.length > 0
                 ),
         }
@@ -203,12 +252,12 @@ export function updateState(patch: Partial<OuraCliState>): OuraCliState {
       ? {
           ...current.deliveries,
           ...patch.deliveries,
-          morningOptimized: patch.deliveries.morningOptimized
+          morning: patch.deliveries.morning
             ? {
-                ...current.deliveries?.morningOptimized,
-                ...patch.deliveries.morningOptimized,
+                ...current.deliveries?.morning,
+                ...patch.deliveries.morning,
               }
-            : current.deliveries?.morningOptimized,
+            : current.deliveries?.morning,
         }
       : current.deliveries,
   };

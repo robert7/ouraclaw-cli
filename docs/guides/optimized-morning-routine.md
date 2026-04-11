@@ -1,7 +1,7 @@
-# Optimized Morning Routine
+# Morning Summary Routine
 
-`summary morning-optimized` is the quiet-by-default morning alert flow. It is designed to answer one question:
-"Does today's Oura data need attention?"
+`summary morning` is the canonical morning summary flow. It is designed to answer two related questions:
+"Is today's Oura data ready?" and "Does today's Oura data need attention?"
 
 ## What It Checks
 
@@ -34,7 +34,7 @@ otherwise consider it normal.
 
 ## Personal Baseline
 
-The baseline is built from the last three completed calendar weeks when `summary morning-optimized` refreshes
+The baseline is built from the last three completed calendar weeks when `summary morning` refreshes
 automatically, or from the previous 21 days excluding today when the user runs `baseline rebuild`.
 
 For each tracked metric, the CLI stores:
@@ -87,11 +87,11 @@ The OpenClaw skill should treat that as "do not send anything yet." The next sch
 
 ## Daily Delivery Mode
 
-The optimized watcher is not only for quiet alerting.
+The morning summary watcher is not only for quiet alerting.
 
 If you configure the watcher in `daily-when-ready` mode, it still waits for today's Oura data to be ready before
-sending anything. On attention days it sends the optimized alert. On other days it can still send a normal morning
-recap, but only after real same-day data is available.
+sending anything. On attention days it sends the morning summary with alert emphasis. On other days it can still send a
+calm morning summary, but only after real same-day data is available.
 
 That makes it a better fit than a fixed-time morning cron job when the user wants a daily recap without the risk of
 firing before Oura has synced yet.
@@ -108,27 +108,26 @@ The CLI also exposes `summary week-overview` as a separate seven-day JSON summar
 including today and is shaped for brief localized recaps: one concise daily line, explicit attention markers, and
 structured per-metric fields for agent rendering.
 
-That weekly command is independent of the optimized morning decision, but it is the intended input for future Monday
+That weekly command is independent of the morning summary decision, but it is the intended input for future Monday
 messages that combine the normal morning check with a quick look back at the previous week.
 
 ## Delivery Handshake
 
-If `summary morning-optimized` returns `shouldSend: true`, it also returns a `deliveryKey`.
+If `summary morning` returns `shouldSend: true`, it also returns a `deliveryKey`.
 
 The intended sequence is:
 
-1. Agent runs `ouraclaw-cli summary morning-optimized`
+1. Agent runs `ouraclaw-cli summary morning`
 2. If `shouldSend: false`, agent sends nothing and produces no output at all.
-3. If `shouldSend: true`, agent sends the message according to `deliveryType`
-4. In `daily-when-ready` mode, `deliveryType: "morning-summary"` is still the ready-day branch of the optimized
-   watcher, not a separate schedule.
-5. Only after successful delivery, agent runs:
+3. If `shouldSend: true`, agent sends the single morning summary contract. Calm days use neutral wording; attention
+   days mention the relevant alert reasons.
+4. Only after successful delivery, agent runs:
 
-   `ouraclaw-cli summary morning-optimized-confirm --delivery-key <deliveryKey>`
+   `ouraclaw-cli summary morning-confirm --delivery-key <deliveryKey>`
 
    If the original result used `--delivery-mode daily-when-ready`, confirm with:
 
-   `ouraclaw-cli summary morning-optimized-confirm --delivery-mode daily-when-ready --delivery-key <deliveryKey>`
+   `ouraclaw-cli summary morning-confirm --delivery-mode daily-when-ready --delivery-key <deliveryKey>`
 
 This confirmation matters because the CLI does not know whether the external send actually succeeded. Once confirmation
 is stored, later same-day runs return `shouldSend: false` with `already_delivered_today` in `skipReasons` so duplicate alerts are
