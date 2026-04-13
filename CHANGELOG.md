@@ -4,42 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-04-13
+
 ### Added
 
-- Added Dependabot configuration for grouped npm and GitHub Actions updates.
 - Added `auth login` for re-authenticating with Oura without changing thresholds, baseline tuning, or schedules.
-- Added `summary week-overview` for seven-day JSON summaries with optimized-metric attention details.
-- Added `link-cli.sh` and `unlink-cli.sh` helper scripts for npm-based local global linking from a source checkout.
+- Added `summary week-overview` for seven-day JSON recaps with optimized-metric attention details.
+- Added `link-cli.sh` and `unlink-cli.sh` helper scripts for npm-based global linking from a source checkout.
 
 ### Changed
 
-- Collapsed the old split morning surfaces into one canonical `summary morning` flow with `summary morning-confirm`,
-  removed the separate `summary morning-optimized` contract, and rewrote the schedule/skill/docs around a single
-  morning summary watcher.
-- Changed `schedule setup` to ask for the delivery channel first and let known channels like Discord keep their saved
-  target as a shortcut while still accepting a manually entered target override.
-- Reworked the canonical morning flow around attention signals: replaced `ordinary`, `breachedMetrics`, and generic
-  `reasons` with `shouldAlert`, `alertMetrics`, `alertReasons`, `skipReasons`, and per-metric `metricSignals`.
-- Changed optimized baseline evaluation to be direction-aware so better HRV or lower resting heart rate no longer
-  triggers an alert, while worse primary metrics can still alert by themselves.
-- Renamed baseline tuning from breached-metric counting to `baselineConfig.supportingMetricAlertCount`, defaulting to
-  two worse supporting metrics before the optimized baseline path alerts.
-- Clarified setup output when OpenClaw is unavailable and added explicit percentile-band wording to the baseline
-  sensitivity prompt.
-- Moved setup's existing-auth reauthentication prompt before threshold and baseline tuning.
-- Fixed range-based sleep record fetching so weekly and baseline summaries include overnight sleep that started the
-  previous calendar day.
-- Compacted weekly overview JSON around localization-friendly metric entries, ordered daily summary lines, attention
-  metric lists, and missing metric lists.
-- Added a dedicated `summary week-overview` skill template with explicit delivery-language guidance for localized
-  weekly recaps.
-- Clarified the README and core docs so the CLI is positioned as automation-first and usable without OpenClaw, while
-  promoting `summary week-overview` as a first-class recap surface.
-- Expanded the README install section to explain when to use `link-cli.sh` / `unlink-cli.sh` instead of the published
-  global npm install.
-- Upgraded runtime and tooling dependencies in phases, including `commander` 14, TypeScript 6, ESLint 10.2, Vitest 4.1.3, and related type/lint packages.
-- Raised the documented and enforced Node.js engine floor to 20 to match the supported runtime and CI.
-- Updated the TypeScript compiler configuration from legacy Node resolution to `Node16`/`node16` so typecheck stays compatible with TypeScript 6.
+- Unified the morning summary surfaces around `summary morning` and `summary morning-confirm`, replacing the separate
+  optimized morning contract with a single watcher flow.
+- Reworked morning decision output around attention signals with `shouldAlert`, `alertMetrics`, `alertReasons`,
+  `skipReasons`, and per-metric `metricSignals`.
+- Made optimized baseline evaluation direction-aware and renamed the supporting-metric threshold to
+  `baselineConfig.supportingMetricAlertCount`.
+- Updated setup and scheduling to ask for the delivery channel first, reuse known channel targets more cleanly, and
+  prompt for re-authentication earlier in setup.
+- Compacted `summary week-overview` JSON around localization-friendly metric entries and ordered recap content.
+- Raised the supported Node.js runtime floor to 20.
+
+### Fixed
+
+- Fixed overnight sleep range fetching so weekly and baseline summaries include sleep that started on the previous
+  calendar day.
 
 ## [0.3.0] - 2026-03-13
 
