@@ -251,6 +251,9 @@ When delivering a seven-day overview, run:
 
 Use the returned JSON fields `period`, `metricOrder`, `overview`, and `days` as the source data.
 
+Interpret the range as completed calendar days. By default it excludes today, and each row already carries the
+next-morning Oura bundle shifted back onto the completed day being reviewed.
+
 Send only the formatted overview in the delivery language, with no extra preamble or commentary.
 
 Format rules:

@@ -116,9 +116,14 @@ delivery type branch.
 ### `ouraclaw-cli summary week-overview [--start-date YYYY-MM-DD] [--end-date YYYY-MM-DD]`
 
 Builds a seven-day JSON overview using the same attention logic as `summary morning`. With no flags, the
-range is the last seven days including today. With only `--start-date`, the range is that date plus the next six days.
-With only `--end-date`, the range is that date and the previous six days. With both flags, the inclusive range must be
-exactly seven days.
+range is the last seven completed calendar days, excluding today. With only `--start-date`, the range is that date
+plus the next six days. With only `--end-date`, the range is that date and the previous six days. With both flags, the
+inclusive range must be exactly seven days.
+
+For weekly recap rendering, each row is labeled by the completed calendar day being reviewed. The underlying sleep,
+readiness, temperature, HRV, heart-rate, and total-sleep bundle is shifted back one day from the morning-style Oura
+record ownership, so a Monday run can show the previous Monday through Sunday while still including Sunday-night to
+Monday-morning sleep on the Sunday row.
 
 The result includes `period`, `baselineStatus`, `metricOrder`, `overview`, and `days`. Each day includes `weekday`,
 `dataReady`, `shouldAlert`, a concise English fallback `summaryLine`, `attentionMetrics`, `missingMetrics`, and compact

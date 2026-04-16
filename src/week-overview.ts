@@ -1,5 +1,5 @@
 import { BASELINE_METRICS } from './config';
-import { formatDuration } from './date-utils';
+import { formatDuration, parseIsoDate } from './date-utils';
 import { evaluateMorning } from './morning';
 import {
   BaselineConfig,
@@ -116,6 +116,52 @@ function buildTopAttentionMetrics(days: WeekOverviewDay[]): WeekOverviewTopAtten
   })
     .filter((entry) => entry.count > 0)
     .sort((left, right) => right.count - left.count || left.metric.localeCompare(right.metric));
+}
+
+function formatShortRangeDate(day: string): string {
+  return parseIsoDate(day).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function formatTopAttentionMetric(metric: BaselineMetricKey): string {
+  switch (metric) {
+    case 'sleepScore':
+      return 'sleep';
+    case 'readinessScore':
+      return 'readiness';
+    case 'temperatureDeviation':
+      return 'temperature';
+    case 'averageHrv':
+      return 'HRV';
+    case 'lowestHeartRate':
+      return 'lowest heart rate';
+    case 'totalSleepDuration':
+      return 'total sleep';
+  }
+}
+
+export function buildWeekOverviewText(result: WeekOverviewResult): string {
+  const lines = [
+    `Your Oura overview for ${formatShortRangeDate(result.period.startDay)} - ${formatShortRangeDate(result.period.endDay)}.`,
+    '',
+    ...result.days.map((day) =>
+      day.summaryLine.length > 0
+        ? `${day.weekday.slice(0, 3)}: ${day.summaryLine}`
+        : `${day.weekday.slice(0, 3)}: data not ready`
+    ),
+  ];
+
+  const topMetric = result.overview.topAttentionMetrics[0];
+  if (topMetric) {
+    lines.push('');
+    lines.push(
+      `Main pattern: ${formatTopAttentionMetric(topMetric.metric)} was the most repeated attention signal this week.`
+    );
+  }
+
+  return lines.join('\n');
 }
 
 export function buildWeekOverview(input: {

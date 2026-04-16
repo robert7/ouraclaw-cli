@@ -158,7 +158,33 @@ describe('cli actions', () => {
     });
   });
 
-  test('resolves week overview date ranges as seven inclusive days', async () => {
+  test('defaults week overview to the last seven completed days', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-04-20T11:00:00.000Z'));
+
+      const { resolveWeekOverviewDateRange } = await import('../src/cli');
+
+      expect(resolveWeekOverviewDateRange(undefined, undefined)).toEqual({
+        start: '2026-04-13',
+        end: '2026-04-19',
+        mode: 'last-7-days',
+        days: [
+          '2026-04-13',
+          '2026-04-14',
+          '2026-04-15',
+          '2026-04-16',
+          '2026-04-17',
+          '2026-04-18',
+          '2026-04-19',
+        ],
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test('resolves explicit week overview date ranges as seven inclusive days', async () => {
     const { resolveWeekOverviewDateRange } = await import('../src/cli');
 
     expect(resolveWeekOverviewDateRange('2026-04-04', undefined)).toEqual({
@@ -388,6 +414,48 @@ describe('cli actions', () => {
         sleepScore: 81,
         readinessScore: 84,
         temperatureDeviation: 0,
+        averageHrv: 21,
+        lowestHeartRate: 61,
+        totalSleepDuration: 28000,
+      },
+    ]);
+  });
+
+  test('shifts week overview records back to completed calendar days', async () => {
+    fetchOuraData
+      .mockResolvedValueOnce({ data: [{ day: '2026-04-14', score: 81 }] })
+      .mockResolvedValueOnce({
+        data: [{ day: '2026-04-14', score: 84, temperature_deviation: 0.2 }],
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            day: '2026-04-13',
+            type: 'long_sleep',
+            average_hrv: 20,
+            lowest_heart_rate: 62,
+            total_sleep_duration: 26000,
+          },
+          {
+            day: '2026-04-14',
+            type: 'long_sleep',
+            average_hrv: 21,
+            lowest_heart_rate: 61,
+            total_sleep_duration: 28000,
+          },
+        ],
+      });
+
+    const { fetchWeekOverviewRecordsForRange } = await import('../src/cli');
+    const records = await fetchWeekOverviewRecordsForRange('token', '2026-04-13', '2026-04-19');
+
+    expect(fetchOuraData).toHaveBeenNthCalledWith(3, 'token', 'sleep', '2026-04-13', '2026-04-20');
+    expect(records).toEqual([
+      {
+        day: '2026-04-13',
+        sleepScore: 81,
+        readinessScore: 84,
+        temperatureDeviation: 0.2,
         averageHrv: 21,
         lowestHeartRate: 61,
         totalSleepDuration: 28000,
