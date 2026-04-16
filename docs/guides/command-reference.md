@@ -18,7 +18,7 @@ Runtime requirement: Node.js 20 or newer.
 ## Output Modes
 
 - JSON is the default output for every command.
-- `--text` is supported on `summary morning` and `summary evening`.
+- `--text` is supported on `summary morning`, `summary week-overview`, and `summary evening`.
 - `fetch` returns the raw Oura endpoint payload.
 
 ## Commands
@@ -126,13 +126,20 @@ record ownership, so a Monday run can show the previous Monday through Sunday wh
 Monday-morning sleep on the Sunday row.
 
 The result includes `period`, `baselineStatus`, `metricOrder`, `overview`, and `days`. Each day includes `weekday`,
-`dataReady`, `shouldAlert`, a concise English fallback `summaryLine`, `attentionMetrics`, `missingMetrics`, and compact
-`metrics` entries with `key`, raw `value`, `unit`, localized-rendering helper `displayValue`, and `attention`.
-`summaryLine` omits missing values and prefixes only actionable attention metrics with `⚠️`. For non-English summaries,
-render from `metricOrder`, `metrics`, and `attentionMetrics` instead of translating `summaryLine`.
+`dataReady`, `shouldAlert`, a concise English fallback `summaryLine`, `attentionMetrics`, `missingMetrics`, compact
+`metrics` entries with `key`, raw `value`, `unit`, localized-rendering helper `displayValue`, and `attention`, plus
+completed-day `activity` and `stress` context. `summaryLine` omits missing values and prefixes only actionable
+attention metrics with `⚠️`. For non-English summaries, render from `metricOrder`, `metrics`, and `attentionMetrics`
+instead of translating `summaryLine`.
+
+`overview` also includes step and stress rollups for the seven-day window:
+
+- `totalSteps`
+- `averageSteps`
+- `topStressSummaries`
 
 With `--text`, the command prints a compact English recap intended for local inspection: one header line, one line per
-day, and an optional closing pattern note.
+day with appended step and stress context when available, and an optional closing pattern note.
 
 ### `ouraclaw-cli summary morning-confirm --delivery-key <deliveryKey> [--delivery-mode unusual-only|daily-when-ready]`
 

@@ -504,6 +504,30 @@ describe('cli actions', () => {
             total_sleep_duration: 28000,
           },
         ],
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'activity-1',
+            day: '2026-04-13',
+            score: 79,
+            timestamp: '',
+            active_calories: 410,
+            total_calories: 2340,
+            steps: 9200,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'stress-1',
+            day: '2026-04-13',
+            stress_high: 35,
+            recovery_high: 5,
+            day_summary: 'stressful',
+          },
+        ],
       });
     evaluateMorning
       .mockReturnValueOnce({
@@ -531,7 +555,7 @@ describe('cli actions', () => {
       [
         'Your Oura overview for Apr 13 - Apr 19.',
         '',
-        'Mon: Sleep 81 | Readiness 84 | Total 7h 47m | ⚠️ Temp +0.2C | Lowest HR 61 bpm | HRV 21 ms',
+        'Mon: Sleep 81 | Readiness 84 | Total 7h 47m | ⚠️ Temp +0.2C | Lowest HR 61 bpm | HRV 21 ms | Steps 9.2k | Stress stressful',
         'Tue: data not ready',
         'Wed: data not ready',
         'Thu: data not ready',

@@ -1113,7 +1113,11 @@ export async function runWeekOverview(
     }
   }
 
-  const records = await fetchWeekOverviewRecordsForRange(accessToken, range.start, range.end);
+  const [records, activityResponse, stressResponse] = await Promise.all([
+    fetchWeekOverviewRecordsForRange(accessToken, range.start, range.end),
+    fetchOuraData<DailyActivity>(accessToken, 'daily_activity', range.start, range.end),
+    fetchOuraData<DailyStress>(accessToken, 'daily_stress', range.start, range.end),
+  ]);
   const result = buildWeekOverview({
     startDay: range.start,
     endDay: range.end,
@@ -1121,6 +1125,8 @@ export async function runWeekOverview(
     mode: range.mode,
     days: range.days,
     records,
+    activityRecords: activityResponse.data,
+    stressRecords: stressResponse.data,
     thresholds: state.thresholds,
     baselineConfig: state.baselineConfig,
     baseline,
