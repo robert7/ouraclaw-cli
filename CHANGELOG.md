@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-16
+
+### Added
+
+- Added `summary week-overview --text` for a compact English weekly recap preview in the local CLI.
+- Expanded `summary week-overview` with completed-day activity and stress context, including per-day `steps` and
+  `daySummary` plus weekly `totalSteps`, `averageSteps`, and `topStressSummaries`.
+- Added weekly overview scheduling to `schedule setup`, `schedule status`, and `schedule disable`, including a fixed
+  weekday/time OpenClaw cron job for `summary week-overview`.
+
 ### Changed
 
 - Restricted `metricSignals[].attention`, `attentionMetrics`, and weekly `⚠️` markers to metrics that actually
@@ -11,11 +21,6 @@ All notable changes to this project will be documented in this file.
 - Changed `summary week-overview` to default to the last seven completed calendar days, excluding today, and to shift
   the morning-style metric bundle back one day so Monday weekly recaps can include Sunday-night sleep on the Sunday
   row.
-- Added `summary week-overview --text` for a compact English weekly recap preview in the local CLI.
-- Expanded `summary week-overview` with completed-day activity and stress context, including per-day `steps` and
-  `daySummary` plus weekly `totalSteps`, `averageSteps`, and `topStressSummaries`.
-- Added weekly overview scheduling to `schedule setup`, `schedule status`, and `schedule disable`, including a fixed
-  weekday/time OpenClaw cron job for `summary week-overview`.
 
 ## [0.4.0] - 2026-04-13
 
