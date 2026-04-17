@@ -131,9 +131,11 @@ export function captureOAuthCallback(expectedState: string): Promise<string> {
       }
 
       if (!code) {
-        res.writeHead(400);
-        res.end("Missing authorization code");
-        settle(() => reject(new Error("Missing authorization code in callback")));
+        // No code and no error — likely a stray browser request (prefetch,
+        // favicon redirect, etc.). Keep the server running so the real
+        // OAuth callback can still arrive.
+        res.writeHead(200);
+        res.end("Waiting for authorization...");
         return;
       }
 
