@@ -131,7 +131,27 @@ export function captureOAuthCallback(
 
   return new Promise((resolve, reject) => {
     let settled = false;
+
+    const settle = (callback: () => void) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      server.close();
+      callback();
+    };
+
     const server = http.createServer((req, res) => {
+      if (settled) {
+        res.writeHead(409);
+        res.end('OAuth flow already completed');
+        return;
+      }
+
       const requestUrl = req.url ?? '';
       if (!requestUrl.startsWith('/callback')) {
         res.writeHead(404);
@@ -147,30 +167,27 @@ export function captureOAuthCallback(
       if (error) {
         res.writeHead(400);
         res.end(`Authorization error: ${error}`);
-        settled = true;
-        clearTimeout(timer);
-        server.close();
-        reject(new Error(`OAuth error: ${error}`));
-        return;
-      }
-
-      if (!state || state !== expectedState) {
-        res.writeHead(400);
-        res.end('Invalid OAuth state');
-        settled = true;
-        clearTimeout(timer);
-        server.close();
-        reject(new Error('OAuth callback state mismatch'));
+        settle(() => reject(new Error(`OAuth error: ${error}`)));
         return;
       }
 
       if (!code) {
+        res.writeHead(200);
+        res.end('Waiting for authorization...');
+        return;
+      }
+
+      if (!state) {
         res.writeHead(400);
-        res.end('Missing authorization code');
-        settled = true;
-        clearTimeout(timer);
-        server.close();
-        reject(new Error('Missing authorization code in callback'));
+        res.end('Missing OAuth state');
+        settle(() => reject(new Error('Missing OAuth state in callback')));
+        return;
+      }
+
+      if (state !== expectedState) {
+        res.writeHead(400);
+        res.end('Invalid OAuth state');
+        settle(() => reject(new Error('OAuth callback state mismatch')));
         return;
       }
 
@@ -178,27 +195,15 @@ export function captureOAuthCallback(
       res.end(
         '<html><body><h2>Oura authorized.</h2><p>You can close this tab and return to the terminal.</p></body></html>'
       );
-      settled = true;
-      clearTimeout(timer);
-      server.close();
-      resolve(code);
+      settle(() => resolve(code));
     });
 
     server.on('error', (error) => {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timer);
-        reject(new Error(`Failed to start OAuth callback server: ${error.message}`));
-      }
+      settle(() => reject(new Error(`Failed to start OAuth callback server: ${error.message}`)));
     });
 
-    const timer = setTimeout(() => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      server.close();
-      reject(new Error('OAuth callback timed out after 2 minutes'));
+    const timeoutId = setTimeout(() => {
+      settle(() => reject(new Error('OAuth callback timed out after 2 minutes')));
     }, timeoutMs);
 
     server.listen(port, host);

@@ -12,6 +12,8 @@
 - If you are running over SSH or another headless session, the CLI uses a conservative browser-open prompt default and
   can print the authorize URL instead. Open that URL manually in a browser on the same machine that can reach the
   local callback.
+- On Linux or WSL, set `BROWSER` before running `ouraclaw-cli setup` if the default browser opener picks the wrong
+  application.
 - Re-run `ouraclaw-cli setup`.
 - Ensure nothing else is already listening on port `9876`.
 
@@ -23,6 +25,8 @@ Oura usually returns this when the registered redirect URI does not match the au
 ## OAuth State Validation Fails
 
 The browser callback did not match the initiating request. Close the browser tab and run `ouraclaw-cli setup` again.
+If your browser or desktop environment sends extra callback probes before the real redirect lands, the CLI now keeps
+waiting for the authorization response instead of aborting early.
 
 ## `summary morning` Says Data Is Not Ready
 

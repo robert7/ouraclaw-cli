@@ -55,6 +55,17 @@ describe('oauth', () => {
     await assertion;
   });
 
+  test('ignores stray callback requests until the real authorization arrives', async () => {
+    const port = 19880;
+    const pending = captureOAuthCallback('expected-state', { port, timeoutMs: 1_000 });
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await sendCallback(port, 'state=expected-state');
+    await sendCallback(port, 'code=auth-code&state=expected-state');
+
+    await expect(pending).resolves.toBe('auth-code');
+  });
+
   test('times out cleanly', async () => {
     await expect(
       captureOAuthCallback('never-arrives', { port: 19878, timeoutMs: 20 })

@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- `setup` now respects the `BROWSER` environment variable before falling back to the platform-default browser opener.
+
+### Fixed
+
+- Hardened OAuth callback capture so stray browser probes no longer abort the local login flow before the real
+  authorization redirect arrives.
+
 ## [0.5.0] - 2026-04-16
 
 ### Added

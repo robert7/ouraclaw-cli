@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { exec, execFile } from 'node:child_process';
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { promisify } from 'node:util';
@@ -62,6 +62,7 @@ import {
   SleepPeriod,
 } from './types';
 
+const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 
 interface MaskableReadline extends readline.Interface {
@@ -76,14 +77,58 @@ interface OuraCredentials {
   clientSecret: string;
 }
 
+export type ExternalOpenCommand =
+  | {
+      kind: 'exec';
+      command: string;
+    }
+  | {
+      kind: 'execFile';
+      file: string;
+      args: string[];
+    };
+
+export function getExternalOpenCommand(
+  url: string,
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform
+): ExternalOpenCommand {
+  const browser = env.BROWSER?.trim();
+  if (browser) {
+    return {
+      kind: 'exec',
+      command: `"${browser}" "${url}"`,
+    };
+  }
+
+  if (platform === 'darwin') {
+    return {
+      kind: 'execFile',
+      file: 'open',
+      args: [url],
+    };
+  }
+  if (platform === 'win32') {
+    return {
+      kind: 'execFile',
+      file: 'cmd',
+      args: ['/c', 'start', '', url],
+    };
+  }
+  return {
+    kind: 'execFile',
+    file: 'xdg-open',
+    args: [url],
+  };
+}
+
 function openExternalUrl(url: string): Promise<void> {
-  if (process.platform === 'darwin') {
-    return execFileAsync('open', [url]).then(() => undefined);
+  const command = getExternalOpenCommand(url);
+  if (command.kind === 'exec') {
+    return execAsync(command.command).then(() => undefined);
   }
-  if (process.platform === 'win32') {
-    return execFileAsync('cmd', ['/c', 'start', '', url]).then(() => undefined);
-  }
-  return execFileAsync('xdg-open', [url]).then(() => undefined);
+
+  return execFileAsync(command.file, command.args).then(() => undefined);
 }
 
 export function isLikelyHeadlessSession(
