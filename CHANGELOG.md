@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Reduced Dependabot version-update checks to monthly runs on the 15th.
 - `setup` now respects the `BROWSER` environment variable before falling back to the platform-default browser opener.
 
 ### Fixed
