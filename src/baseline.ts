@@ -1,5 +1,6 @@
 import { BASELINE_METRICS, DEFAULT_BASELINE_CONFIG } from './config';
 import { addDays, getIsoWeekString, getWeekStartMonday, toIsoDate } from './date-utils';
+import { buildMetricSnapshot } from './statistics';
 import {
   BaselineConfig,
   BaselineMetricKey,
@@ -7,23 +8,6 @@ import {
   BaselineSnapshot,
   OuraRecord,
 } from './types';
-
-function percentile(sortedValues: number[], percentileValue: number): number {
-  if (sortedValues.length === 1) {
-    return sortedValues[0];
-  }
-
-  const index = (sortedValues.length - 1) * percentileValue;
-  const lowerIndex = Math.floor(index);
-  const upperIndex = Math.ceil(index);
-  const weight = index - lowerIndex;
-
-  if (lowerIndex === upperIndex) {
-    return sortedValues[lowerIndex];
-  }
-
-  return sortedValues[lowerIndex] * (1 - weight) + sortedValues[upperIndex] * weight;
-}
 
 export function validateBaselineConfig(input: unknown): BaselineConfig {
   const candidate = input as Partial<BaselineConfig>;
@@ -58,23 +42,6 @@ export function defaultBaselineConfig(): BaselineConfig {
   return {
     lowerPercentile: DEFAULT_BASELINE_CONFIG.lowerPercentile,
     supportingMetricAlertCount: DEFAULT_BASELINE_CONFIG.supportingMetricAlertCount,
-  };
-}
-
-function buildMetricSnapshot(
-  values: number[],
-  lowerPercentile: number
-): BaselineMetricSnapshot | undefined {
-  if (values.length === 0) {
-    return undefined;
-  }
-
-  const sorted = [...values].sort((left, right) => left - right);
-  return {
-    median: percentile(sorted, 0.5),
-    low: percentile(sorted, lowerPercentile / 100),
-    high: percentile(sorted, (100 - lowerPercentile) / 100),
-    sampleSize: sorted.length,
   };
 }
 

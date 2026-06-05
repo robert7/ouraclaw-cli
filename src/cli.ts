@@ -24,6 +24,11 @@ import {
 } from './baseline';
 import { addDays, compareIsoDates, getTodayIsoDate, parseIsoDate } from './date-utils';
 import { evaluateMorning } from './morning';
+import {
+  buildMonthOverview,
+  buildMonthOverviewText,
+  resolveMonthOverviewDateRange,
+} from './month-overview';
 import { exchangeCodeForTokens, buildAuthorizeUrl, captureOAuthCallback } from './oauth';
 import { fetchOuraData } from './oura-client';
 import { printJson, printText } from './output';
@@ -908,7 +913,7 @@ export async function fetchMorningBaselineRecordsForRange(
     .filter(hasAnyMorningRecordValue);
 }
 
-export async function fetchWeekOverviewRecordsForRange(
+export async function fetchCompletedDayMorningRecordsForRange(
   accessToken: string,
   startDay: string,
   endDay: string
@@ -925,6 +930,14 @@ export async function fetchWeekOverviewRecordsForRange(
     ...record,
     day: getTodayIsoDate(addDays(parseIsoDate(record.day), -1)),
   }));
+}
+
+export async function fetchWeekOverviewRecordsForRange(
+  accessToken: string,
+  startDay: string,
+  endDay: string
+): Promise<OuraRecord[]> {
+  return fetchCompletedDayMorningRecordsForRange(accessToken, startDay, endDay);
 }
 
 function hasMorningDeliveredToday(state: OuraCliState, day: string): boolean {
@@ -1245,6 +1258,32 @@ export async function runWeekOverview(
   printJson(result);
 }
 
+export async function runMonthOverview(textMode = false): Promise<void> {
+  const range = resolveMonthOverviewDateRange();
+  const accessToken = await ensureValidAccessToken();
+  const state = readState();
+  const [records, activityResponse] = await Promise.all([
+    fetchCompletedDayMorningRecordsForRange(accessToken, range.start, range.end),
+    fetchOuraData<DailyActivity>(accessToken, 'daily_activity', range.start, range.end),
+  ]);
+  const result = buildMonthOverview({
+    startDay: range.start,
+    endDay: range.end,
+    timezone: state.schedule.timezone,
+    days: range.days,
+    records,
+    activityRecords: activityResponse.data,
+    baselineConfig: state.baselineConfig,
+  });
+
+  if (textMode) {
+    printText(buildMonthOverviewText(result));
+    return;
+  }
+
+  printJson(result);
+}
+
 export async function confirmMorningDelivery(
   deliveryKey: string,
   deliveryMode: OptimizedWatcherDeliveryMode = 'unusual-only'
@@ -1521,6 +1560,12 @@ export function createProgram(): Command {
     .option('--text', 'Print compact English recap text')
     .action(async (options: { startDate?: string; endDate?: string; text?: boolean }) => {
       await runWeekOverview(Boolean(options.text), options.startDate, options.endDate);
+    });
+  summary
+    .command('month-overview')
+    .option('--text', 'Print compact English rolling 30-day recap text')
+    .action(async (options: { text?: boolean }) => {
+      await runMonthOverview(Boolean(options.text));
     });
   summary
     .command('evening')

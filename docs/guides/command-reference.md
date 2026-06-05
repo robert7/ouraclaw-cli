@@ -18,7 +18,8 @@ Runtime requirement: Node.js 20 or newer.
 ## Output Modes
 
 - JSON is the default output for every command.
-- `--text` is supported on `summary morning`, `summary week-overview`, and `summary evening`.
+- `--text` is supported on `summary morning`, `summary week-overview`, `summary month-overview`, and
+  `summary evening`.
 - `fetch` returns the raw Oura endpoint payload.
 
 ## Commands
@@ -148,6 +149,31 @@ attention.
 
 With `--text`, the command prints a compact English recap intended for local inspection: one header line, one line per
 day with appended step and stress context when available, and an optional closing pattern note.
+
+### `ouraclaw-cli summary month-overview [--text]`
+
+Builds a rolling 30-day recap for the last 30 completed calendar days, excluding today. The sleep, readiness,
+temperature, HRV, heart-rate, total-sleep, and deep-sleep bundle is shifted back one day from morning-style Oura record
+ownership, matching the weekly overview semantics.
+
+The result includes `period`, `percentileBand`, `metricOrder`, `metrics`, and `dataCoverage`. Each metric includes raw
+`median`, `low`, and `high` values plus `displayMedian` and `displayRange` for compact rendering.
+
+The percentile band uses the configured baseline lower percentile and its mirrored upper percentile. With the default
+`baselineConfig.lowerPercentile: 25`, the recap shows medians with `P25-P75` bands. This is descriptive context only; it
+does not set attention state.
+
+With `--text`, the CLI prints a compact English recap in this shape:
+
+```text
+Oura 30-day recap · May 6-Jun 4 · medians with P25-P75
+
+Sleep: 82 (78-86) | Total 6h 52m (6h 18m-7h 24m) | Deep 1h 6m (52m-1h 19m)
+Readiness: 79 (74-84) | HRV 22 ms (18-29) | Lowest HR 61 bpm (57-64)
+Temp: +0.0C (-0.1 to +0.2) | Steps 8.7k (6.2k-11.1k)
+
+Data: 28/30 sleep days · 30/30 activity days
+```
 
 ### `ouraclaw-cli summary morning-confirm --delivery-key <deliveryKey> [--delivery-mode unusual-only|daily-when-ready]`
 

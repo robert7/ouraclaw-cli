@@ -124,13 +124,16 @@ ouraclaw-cli summary morning --delivery-mode daily-when-ready --text
 ouraclaw-cli summary morning
 ouraclaw-cli summary morning-confirm --delivery-key <deliveryKey>
 ouraclaw-cli summary week-overview
+ouraclaw-cli summary month-overview --text
 ouraclaw-cli summary evening --text
 ```
 
 JSON is the default output mode. Use `--text` on summary commands when you want a ready-to-send recap.
 
-`summary week-overview` defaults to the last seven days including today and also supports
+`summary week-overview` defaults to the last seven completed days, excluding today, and also supports
 `--start-date YYYY-MM-DD` / `--end-date YYYY-MM-DD` for a custom seven-day window.
+
+`summary month-overview` summarizes the last 30 completed days with medians and the configured percentile band.
 
 ## Scheduling
 
@@ -176,6 +179,12 @@ day, all six optimized metrics in a fixed order, and explicit attention markers 
 The command is useful on its own for manual review or external automations, and the shipped Oura skill now includes a
 dedicated weekly template for localized delivery. This also sets up the planned Monday flow where the weekly overview
 can be embedded into the morning summary message.
+
+## 30-Day Overview
+
+`summary month-overview` builds a rolling 30-day recap for the last 30 completed days. It reports medians plus the
+configured percentile band, for example `P25-P75` with the default baseline tuning. It is descriptive only and does not
+drive attention alerts.
 
 ## OpenClaw Skill
 

@@ -24,7 +24,8 @@ metadata:
 
 # Oura via ouraclaw-cli
 
-Use this skill when the user wants Oura Ring data, a morning summary, an evening recap, or a weekly overview.
+Use this skill when the user wants Oura Ring data, a morning summary, an evening recap, a weekly overview, or a rolling
+30-day overview.
 
 ## Preconditions
 
@@ -58,6 +59,8 @@ Use this skill when the user wants Oura Ring data, a morning summary, an evening
 - Morning delivery confirmation: `ouraclaw-cli summary morning-confirm --delivery-key <deliveryKey>`
 - Seven-day overview: `ouraclaw-cli summary week-overview`
 - Seven-day overview text preview: `ouraclaw-cli summary week-overview --text`
+- Rolling 30-day overview: `ouraclaw-cli summary month-overview`
+- Rolling 30-day overview text preview: `ouraclaw-cli summary month-overview --text`
 
 ## Date Rules
 
@@ -294,6 +297,46 @@ Fri: Sleep 85 | Readiness 86 | Total 6h 52m | Deep 1h 1m | Temp +0.1C | Lowest H
 Main pattern: temperature was the most repeated attention signal this week.
 ```
 
+## Monthly Overview Template
+
+When delivering a rolling 30-day overview, run:
+
+`ouraclaw-cli summary month-overview`
+
+Use the returned JSON fields `period`, `percentileBand`, `metricOrder`, `metrics`, and `dataCoverage` as the source
+data. For local inspection, `ouraclaw-cli summary month-overview --text` prints a compact English preview of the same
+recap shape.
+
+Interpret the range as the last 30 completed calendar days. By default it excludes today, and the sleep bundle is
+shifted back onto the completed day being reviewed.
+
+Send only the formatted overview in the delivery language, with no extra preamble or commentary.
+
+Format rules:
+
+- Start with a short header covering the 30-day range and percentile band.
+- Show medians with their percentile band in parentheses.
+- Use the configured `percentileBand.label`, usually `P25-P75`.
+- Include sleep score, total sleep, deep sleep, readiness, HRV, lowest heart rate, temperature deviation, and steps
+  when present.
+- End with a compact data-coverage line using `dataCoverage.sleepDays`, `dataCoverage.activityDays`, and
+  `dataCoverage.totalDays`.
+- Keep it concise, roughly 5-7 lines total.
+- Bold only the header on channels that support bold. On plain text channels, do not use formatting markers.
+- The example below is English structure only. The real delivered message must use the requested delivery language.
+
+Example tone (plain text, structure only):
+
+```text
+Oura 30-day recap · May 6-Jun 4 · medians with P25-P75
+
+Sleep: 82 (78-86) | Total 6h 52m (6h 18m-7h 24m) | Deep 1h 6m (52m-1h 19m)
+Readiness: 79 (74-84) | HRV 22 ms (18-29) | Lowest HR 61 bpm (57-64)
+Temp: +0.0C (-0.1 to +0.2) | Steps 8.7k (6.2k-11.1k)
+
+Data: 28/30 sleep days · 30/30 activity days
+```
+
 ## Ad-hoc Query Mapping
 
 - "How did I sleep?" -> `ouraclaw-cli fetch daily_sleep`
@@ -302,5 +345,7 @@ Main pattern: temperature was the most repeated attention signal this week.
 - "How active was I today?" -> `ouraclaw-cli fetch daily_activity`
 - "How stressed was I?" -> `ouraclaw-cli fetch daily_stress`
 - "How was my week?" -> `ouraclaw-cli summary week-overview`
+- "How was my month?" -> `ouraclaw-cli summary month-overview`
+- "Show my last 30 days" -> `ouraclaw-cli summary month-overview`
 
 Do not recreate Oura business logic in prompt text when the CLI already exposes it.

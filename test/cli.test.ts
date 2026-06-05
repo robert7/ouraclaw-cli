@@ -41,18 +41,22 @@ describe('cli', () => {
     const summaryCommand = createProgram().commands.find((command) => command.name() === 'summary');
     const summarySubcommands = summaryCommand?.commands.map((command) => command.name()).sort();
 
+    expect(summarySubcommands).toContain('month-overview');
     expect(summarySubcommands).toContain('morning-confirm');
     expect(summarySubcommands).toContain('week-overview');
   });
 
-  test('registers text preview support for week-overview', () => {
+  test('registers text preview support for overview summaries', () => {
     const summaryCommand = createProgram().commands.find((command) => command.name() === 'summary');
     const weekOverviewCommand = summaryCommand?.commands.find(
       (command) => command.name() === 'week-overview'
     );
-    const optionFlags = weekOverviewCommand?.options.map((option) => option.flags);
+    const monthOverviewCommand = summaryCommand?.commands.find(
+      (command) => command.name() === 'month-overview'
+    );
 
-    expect(optionFlags).toContain('--text');
+    expect(weekOverviewCommand?.options.map((option) => option.flags)).toContain('--text');
+    expect(monthOverviewCommand?.options.map((option) => option.flags)).toContain('--text');
   });
 
   test('registers the auth management commands', () => {

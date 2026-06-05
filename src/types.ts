@@ -354,3 +354,39 @@ export interface WeekOverviewResult {
   };
   days: WeekOverviewDay[];
 }
+
+export type MonthOverviewMetricKey = WeekOverviewMetricKey | 'steps';
+
+export interface MonthOverviewMetric {
+  key: MonthOverviewMetricKey;
+  unit: 'score' | 'celsius' | 'milliseconds' | 'bpm' | 'seconds' | 'steps';
+  median: number;
+  low: number;
+  high: number;
+  sampleSize: number;
+  displayMedian: string;
+  displayRange: string;
+}
+
+export interface MonthOverviewResult {
+  period: {
+    mode: 'last-30-days';
+    startDay: string;
+    endDay: string;
+    timezone: string;
+    totalDays: number;
+  };
+  percentileBand: {
+    lower: number;
+    upper: number;
+    label: string;
+  };
+  metricOrder: MonthOverviewMetricKey[];
+  metrics: MonthOverviewMetric[];
+  dataCoverage: {
+    sleepDays: number;
+    readinessDays: number;
+    activityDays: number;
+    totalDays: number;
+  };
+}

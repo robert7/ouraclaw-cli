@@ -50,8 +50,8 @@ The stored baseline tracks these morning decision metrics when available:
 - `lowest_heart_rate`
 - `total_sleep_duration`
 
-Morning and weekly summaries may also display `deep_sleep_duration` from the detailed sleep period. It is intentionally
-not part of the baseline or attention model.
+Morning, weekly, and rolling 30-day summaries may also display `deep_sleep_duration` from the detailed sleep period. It
+is intentionally not part of the baseline or attention model.
 
 For each metric the snapshot stores a median plus ordinary low/high bounds. The ordinary band is configurable through a
 lower percentile and its mirrored upper percentile. With the default `25`, the ordinary band is the 25th to 75th
@@ -64,6 +64,9 @@ supporting metrics: they can be worse than baseline without being marked as acti
 for attention when they actually contribute to a real alert via the configured supporting metric alert count. Higher
 HRV and lower resting heart rate are treated as better baseline signals, not alert causes.
 
+The rolling 30-day overview reuses the configured lower percentile spread for descriptive median bands, but it does not
+write or evaluate baseline attention state.
+
 Once an agent has successfully delivered a morning summary, it must confirm delivery back to the CLI with the returned
 `deliveryKey`. The CLI stores that confirmation in local state and suppresses duplicate same-day morning sends for the
 rest of the calendar day.
@@ -75,9 +78,9 @@ execution, prefers JSON for automation, and uses `--text` only when it needs a s
 
 The same JSON-first contract is intended to work equally well for non-OpenClaw automations. In addition to the daily
 recap commands and morning summary decision, `summary week-overview` is a first-class structured output for concise
-weekly recaps and localized agent rendering. That weekly view is calendar-day-oriented: by default it excludes today
-and shifts each morning-style metric bundle back one day so the final row in a Monday recap can still include the
-completed Sunday-night sleep.
+weekly recaps and localized agent rendering, while `summary month-overview` provides a compact rolling 30-day median
+recap. These overview commands are calendar-day-oriented: by default they exclude today and shift each morning-style
+metric bundle back one day so completed-night sleep belongs to the completed day being reviewed.
 
 ## Scheduling
 

@@ -121,6 +121,9 @@ same actionable rule as `summary morning`, so a supporting outlier does not get 
 That weekly command is independent of the morning summary decision, but it is the intended input for future Monday
 messages that combine the normal morning check with a quick look back at the previous week.
 
+`summary month-overview` is also independent of the morning decision. It summarizes the last 30 completed days with
+median values and the configured percentile spread, using the same completed-day sleep shift as the weekly overview.
+
 ## Delivery Handshake
 
 If `summary morning` returns `shouldSend: true`, it also returns a `deliveryKey`.

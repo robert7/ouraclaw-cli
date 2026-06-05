@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Added display-only deep sleep duration to `summary morning` and `summary week-overview` output.
+- Added `summary month-overview` for rolling 30-day median and percentile-band recaps.
 
 ### Changed
 

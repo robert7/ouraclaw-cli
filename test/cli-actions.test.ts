@@ -113,6 +113,7 @@ vi.mock('../src/summaries', () => ({
 describe('cli actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
     createOrReplaceScheduleJobs.mockImplementation((schedule) => schedule);
     getConfiguredChannelTargets.mockReturnValue([]);
     getLegacyScheduleDefaults.mockReturnValue(undefined);
@@ -572,6 +573,91 @@ describe('cli actions', () => {
         'Sun: data not ready',
         '',
         'Main pattern: temperature was the most repeated attention signal this week.',
+      ].join('\n')
+    );
+  });
+
+  test('prints compact month overview text for the last 30 completed days', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-05T10:00:00.000Z'));
+    ensureValidAccessToken.mockResolvedValue('token');
+    readState.mockReturnValue({
+      schemaVersion: 1,
+      auth: {},
+      thresholds: { sleepScoreMin: 75, readinessScoreMin: 75, temperatureDeviationMax: 0.1 },
+      baselineConfig: { lowerPercentile: 25, supportingMetricAlertCount: 2 },
+      schedule: { timezone: 'Europe/Bratislava' },
+      deliveries: {},
+    });
+    fetchOuraData
+      .mockResolvedValueOnce({ data: [{ day: '2026-05-07', score: 80 }] })
+      .mockResolvedValueOnce({
+        data: [{ day: '2026-05-07', score: 70, temperature_deviation: 0.1 }],
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            day: '2026-05-07',
+            type: 'long_sleep',
+            average_hrv: 21,
+            lowest_heart_rate: 61,
+            total_sleep_duration: 25200,
+            deep_sleep_duration: 4200,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'activity-1',
+            day: '2026-05-06',
+            score: 80,
+            timestamp: '',
+            active_calories: 300,
+            total_calories: 2200,
+            steps: 9000,
+          },
+        ],
+      });
+
+    try {
+      const { runMonthOverview } = await import('../src/cli');
+      await runMonthOverview(true);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(fetchOuraData).toHaveBeenNthCalledWith(
+      1,
+      'token',
+      'daily_sleep',
+      '2026-05-07',
+      '2026-06-05'
+    );
+    expect(fetchOuraData).toHaveBeenNthCalledWith(
+      2,
+      'token',
+      'daily_readiness',
+      '2026-05-07',
+      '2026-06-05'
+    );
+    expect(fetchOuraData).toHaveBeenNthCalledWith(3, 'token', 'sleep', '2026-05-06', '2026-06-05');
+    expect(fetchOuraData).toHaveBeenNthCalledWith(
+      4,
+      'token',
+      'daily_activity',
+      '2026-05-06',
+      '2026-06-04'
+    );
+    expect(printText).toHaveBeenCalledWith(
+      [
+        'Oura 30-day recap · May 6-Jun 4 · medians with P25-P75',
+        '',
+        'Sleep: 80 (80-80) | Total 7h 0m (7h 0m-7h 0m) | Deep 1h 10m (1h 10m-1h 10m)',
+        'Readiness: 70 (70-70) | HRV 21 ms (21-21) | Lowest HR 61 bpm (61-61)',
+        'Temp: +0.1C (+0.1 to +0.1) | Steps 9.0k (9.0k-9.0k)',
+        '',
+        'Data: 1/30 sleep days · 1/30 activity days',
       ].join('\n')
     );
   });

@@ -28,6 +28,7 @@ runtime in the final architecture.
 - `summary morning`
 - `summary morning-confirm`
 - `summary week-overview`
+- `summary month-overview`
 - `summary evening`
 
 ### Output Contract
@@ -50,6 +51,7 @@ runtime in the final architecture.
 - `src/summaries.ts` - evening recap assembly
 - `src/morning.ts` - canonical morning summary decision logic
 - `src/week-overview.ts` - seven-day optimized metric overview assembly
+- `src/month-overview.ts` - rolling 30-day median and percentile-band overview assembly
 - `src/output.ts` - JSON/text printing helpers
 
 Primary docs:
