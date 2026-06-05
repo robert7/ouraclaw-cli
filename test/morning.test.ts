@@ -18,6 +18,8 @@ const baseline: BaselineSnapshot = {
     averageHrv: { median: 40, low: 35, high: 45, sampleSize: 10 },
     lowestHeartRate: { median: 49, low: 47, high: 51, sampleSize: 10 },
     totalSleepDuration: { median: 28000, low: 27000, high: 29000, sampleSize: 10 },
+    deepSleepDuration: { median: 4200, low: 3600, high: 4800, sampleSize: 10 },
+    remSleepDuration: { median: 4800, low: 4200, high: 5400, sampleSize: 10 },
   },
 };
 
@@ -30,6 +32,7 @@ const readyToday: MorningToday = {
   lowestHeartRate: 49,
   totalSleepDuration: 28000,
   deepSleepDuration: 3900,
+  remSleepDuration: 4800,
 };
 
 describe('morning', () => {
@@ -129,6 +132,42 @@ describe('morning', () => {
     expect(result.shouldAlert).toBe(true);
     expect(result.alertMetrics).toEqual(['totalSleepDuration']);
     expect(result.alertReasons).toEqual(['baseline_total_sleep_duration_low']);
+  });
+
+  test('alerts when deep sleep is worse than baseline', () => {
+    const result = evaluateMorning({
+      today: {
+        ...readyToday,
+        deepSleepDuration: 3300,
+      },
+      thresholds: defaultThresholds(),
+      baselineConfig: defaultBaselineConfig(),
+      baselineStatus: 'ready',
+      baseline,
+    });
+
+    expect(result.shouldAlert).toBe(true);
+    expect(result.alertMetrics).toEqual(['deepSleepDuration']);
+    expect(result.alertReasons).toEqual(['baseline_deep_sleep_duration_low']);
+    expect(result.message).toContain('⚠️ Deep 55m');
+  });
+
+  test('alerts when REM sleep is worse than baseline', () => {
+    const result = evaluateMorning({
+      today: {
+        ...readyToday,
+        remSleepDuration: 3900,
+      },
+      thresholds: defaultThresholds(),
+      baselineConfig: defaultBaselineConfig(),
+      baselineStatus: 'ready',
+      baseline,
+    });
+
+    expect(result.shouldAlert).toBe(true);
+    expect(result.alertMetrics).toEqual(['remSleepDuration']);
+    expect(result.alertReasons).toEqual(['baseline_rem_sleep_duration_low']);
+    expect(result.message).toContain('⚠️ REM 1h 5m');
   });
 
   test('does not alert when only one supporting metric is worse than baseline', () => {
@@ -258,9 +297,10 @@ describe('morning', () => {
     expect(result.deliveryKey).toBeDefined();
     expect(result.message).toContain('Nothing urgent stands out');
     expect(result.message).toContain('Deep 1h 5m');
-    expect(result.message).toContain('Deep 1h 5m\nReadiness 80');
+    expect(result.message).toContain('REM 1h 20m');
+    expect(result.message).toContain('REM 1h 20m\nReadiness 80');
     expect(result.alertMetrics).toEqual([]);
-    expect(result.metricSignals).toHaveLength(6);
+    expect(result.metricSignals).toHaveLength(8);
   });
 
   test('daily-when-ready mode still returns alert-oriented morning messages when attention is needed', () => {

@@ -13,6 +13,7 @@ const writeState = vi.fn();
 const rebuildAutomaticBaseline = vi.fn();
 const rebuildManualBaseline = vi.fn();
 const validateBaselineConfig = vi.fn((config) => config);
+const isBaselineComplete = vi.fn(() => true);
 const isBaselineStale = vi.fn();
 const evaluateMorning = vi.fn();
 const buildEveningSummary = vi.fn();
@@ -81,6 +82,7 @@ vi.mock('../src/baseline', () => ({
     weeks: ['2026-W08'],
   })),
   getManualBaselineWindow: vi.fn(() => ({ startDay: '2026-02-20', endDay: '2026-03-12' })),
+  isBaselineComplete,
   isBaselineStale,
   rebuildAutomaticBaseline,
   rebuildManualBaseline,
@@ -114,6 +116,7 @@ describe('cli actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useRealTimers();
+    isBaselineComplete.mockReturnValue(true);
     createOrReplaceScheduleJobs.mockImplementation((schedule) => schedule);
     getConfiguredChannelTargets.mockReturnValue([]);
     getLegacyScheduleDefaults.mockReturnValue(undefined);
@@ -395,6 +398,7 @@ describe('cli actions', () => {
             lowest_heart_rate: 62,
             total_sleep_duration: 26000,
             deep_sleep_duration: 3000,
+            rem_sleep_duration: 3600,
           },
           {
             day: '2026-04-04',
@@ -403,6 +407,7 @@ describe('cli actions', () => {
             lowest_heart_rate: 61,
             total_sleep_duration: 28000,
             deep_sleep_duration: 4200,
+            rem_sleep_duration: 5200,
           },
         ],
       });
@@ -421,6 +426,7 @@ describe('cli actions', () => {
         lowestHeartRate: 61,
         totalSleepDuration: 28000,
         deepSleepDuration: 4200,
+        remSleepDuration: 5200,
       },
     ]);
   });
@@ -440,6 +446,7 @@ describe('cli actions', () => {
             lowest_heart_rate: 62,
             total_sleep_duration: 26000,
             deep_sleep_duration: 3000,
+            rem_sleep_duration: 3600,
           },
           {
             day: '2026-04-14',
@@ -448,6 +455,7 @@ describe('cli actions', () => {
             lowest_heart_rate: 61,
             total_sleep_duration: 28000,
             deep_sleep_duration: 4200,
+            rem_sleep_duration: 5200,
           },
         ],
       });
@@ -466,6 +474,7 @@ describe('cli actions', () => {
         lowestHeartRate: 61,
         totalSleepDuration: 28000,
         deepSleepDuration: 4200,
+        remSleepDuration: 5200,
       },
     ]);
   });
@@ -503,6 +512,7 @@ describe('cli actions', () => {
             lowest_heart_rate: 62,
             total_sleep_duration: 26000,
             deep_sleep_duration: 3000,
+            rem_sleep_duration: 3600,
           },
           {
             day: '2026-04-14',
@@ -511,6 +521,7 @@ describe('cli actions', () => {
             lowest_heart_rate: 61,
             total_sleep_duration: 28000,
             deep_sleep_duration: 4200,
+            rem_sleep_duration: 5200,
           },
         ],
       })
@@ -546,6 +557,8 @@ describe('cli actions', () => {
           { metric: 'sleepScore', value: 81, attention: false },
           { metric: 'readinessScore', value: 84, attention: false },
           { metric: 'totalSleepDuration', value: 28000, attention: false },
+          { metric: 'deepSleepDuration', value: 4200, attention: false },
+          { metric: 'remSleepDuration', value: 5200, attention: false },
           { metric: 'temperatureDeviation', value: 0.2, attention: true },
           { metric: 'lowestHeartRate', value: 61, attention: false },
           { metric: 'averageHrv', value: 21, attention: false },
@@ -564,7 +577,7 @@ describe('cli actions', () => {
       [
         'Your Oura overview for Apr 13 - Apr 19.',
         '',
-        'Mon: Sleep 81 | Readiness 84 | Total 7h 47m | Deep 1h 10m | ⚠️ Temp +0.2C | Lowest HR 61 bpm | HRV 21 ms | Steps 9.2k | Stress stressful',
+        'Mon: Sleep 81 | Readiness 84 | Total 7h 47m | Deep 1h 10m | REM 1h 27m | ⚠️ Temp +0.2C | Lowest HR 61 bpm | HRV 21 ms | Steps 9.2k | Stress stressful',
         'Tue: data not ready',
         'Wed: data not ready',
         'Thu: data not ready',
@@ -603,6 +616,7 @@ describe('cli actions', () => {
             lowest_heart_rate: 61,
             total_sleep_duration: 25200,
             deep_sleep_duration: 4200,
+            rem_sleep_duration: 4800,
           },
         ],
       })
@@ -653,7 +667,7 @@ describe('cli actions', () => {
       [
         'Oura 30-day recap · May 6-Jun 4 · medians with P25-P75',
         '',
-        'Sleep: 80 (80-80) | Total 7h 0m (7h 0m-7h 0m) | Deep 1h 10m (1h 10m-1h 10m)',
+        'Sleep: 80 (80-80) | Total 7h 0m (7h 0m-7h 0m) | Deep 1h 10m (1h 10m-1h 10m) | REM 1h 20m (1h 20m-1h 20m)',
         'Readiness: 70 (70-70) | HRV 21 ms (21-21) | Lowest HR 61 bpm (61-61)',
         'Temp: +0.1C (+0.1 to +0.1) | Steps 9.0k (9.0k-9.0k)',
         '',
@@ -740,6 +754,61 @@ describe('cli actions', () => {
       alertReasons: [],
       skipReasons: [],
     });
+  });
+
+  test('refreshes incomplete baseline during canonical morning flow', async () => {
+    ensureValidAccessToken.mockResolvedValue('token');
+    fetchOuraData.mockResolvedValue({ data: [] });
+    readState.mockReturnValue({
+      schemaVersion: 1,
+      auth: {},
+      thresholds: { sleepScoreMin: 75, readinessScoreMin: 75, temperatureDeviationMax: 0.1 },
+      baselineConfig: { lowerPercentile: 25, supportingMetricAlertCount: 2 },
+      baseline: {
+        updatedAt: '2026-03-13T00:00:00.000Z',
+        mode: 'calendar-weeks',
+        sourceStartDay: '',
+        sourceEndDay: '',
+        metrics: {},
+      },
+      deliveries: {},
+    });
+    isBaselineStale.mockReturnValue(false);
+    isBaselineComplete.mockReturnValue(false);
+    updateState.mockReturnValue({
+      schemaVersion: 1,
+      auth: {},
+      thresholds: { sleepScoreMin: 75, readinessScoreMin: 75, temperatureDeviationMax: 0.1 },
+      baselineConfig: { lowerPercentile: 25, supportingMetricAlertCount: 2 },
+      baseline: {
+        mode: 'calendar-weeks',
+        updatedAt: '2026-03-13T00:00:00.000Z',
+        sourceStartDay: '',
+        sourceEndDay: '',
+        metrics: {},
+      },
+      deliveries: {},
+    });
+    rebuildAutomaticBaseline.mockReturnValue({
+      mode: 'calendar-weeks',
+      updatedAt: '2026-03-13T00:00:00.000Z',
+      sourceStartDay: '',
+      sourceEndDay: '',
+      metrics: {},
+    });
+    evaluateMorning.mockReturnValue({
+      shouldSend: false,
+      shouldAlert: false,
+      dataReady: true,
+      alertReasons: [],
+      skipReasons: [],
+    });
+
+    const { runMorningSummaryJson } = await import('../src/cli');
+    await runMorningSummaryJson();
+
+    expect(isBaselineComplete).toHaveBeenCalled();
+    expect(rebuildAutomaticBaseline).toHaveBeenCalled();
   });
 
   test('records confirmed morning delivery', async () => {

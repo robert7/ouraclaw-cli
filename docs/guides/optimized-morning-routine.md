@@ -5,7 +5,7 @@
 
 ## What It Checks
 
-The routine evaluates six morning decision metrics:
+The routine evaluates eight morning decision metrics:
 
 - `sleepScore`
 - `readinessScore`
@@ -13,9 +13,8 @@ The routine evaluates six morning decision metrics:
 - `averageHrv`
 - `lowestHeartRate`
 - `totalSleepDuration`
-
-The morning payload can also include `deepSleepDuration` for concise display beside total sleep. It is not a decision
-metric and does not contribute to `shouldAlert`, `alertMetrics`, or `metricSignals`.
+- `deepSleepDuration`
+- `remSleepDuration`
 
 The first three metrics can need attention through two paths:
 
@@ -68,12 +67,14 @@ Worse directions are:
 - `sleepScore` below baseline
 - `readinessScore` below baseline
 - `totalSleepDuration` below baseline
+- `deepSleepDuration` below baseline
+- `remSleepDuration` below baseline
 - `averageHrv` below baseline
 - `lowestHeartRate` above baseline
 - `temperatureDeviation` outside baseline
 
-The primary metrics are `sleepScore`, `readinessScore`, and `totalSleepDuration`. One worse primary metric sets
-`shouldAlert: true`.
+The primary metrics are `sleepScore`, `readinessScore`, `totalSleepDuration`, `deepSleepDuration`, and
+`remSleepDuration`. One worse primary metric sets `shouldAlert: true`.
 
 The supporting metrics are `temperatureDeviation`, `averageHrv`, and `lowestHeartRate`. Supporting metrics can still
 appear in `metricSignals` as worse-than-baseline, but they are marked with `attention: true` only when they actually

@@ -49,20 +49,20 @@ The stored baseline tracks these morning decision metrics when available:
 - `average_hrv`
 - `lowest_heart_rate`
 - `total_sleep_duration`
-
-Morning, weekly, and rolling 30-day summaries may also display `deep_sleep_duration` from the detailed sleep period. It
-is intentionally not part of the baseline or attention model.
+- `deep_sleep_duration`
+- `rem_sleep_duration`
 
 For each metric the snapshot stores a median plus ordinary low/high bounds. The ordinary band is configurable through a
 lower percentile and its mirrored upper percentile. With the default `25`, the ordinary band is the 25th to 75th
 percentile. A same-day value outside that band becomes a direction-aware metric signal.
 
 The morning summary routine combines fixed thresholds and baseline attention signals. Fixed-threshold failures alert
-immediately. For baseline signals, `sleepScore`, `readinessScore`, and `totalSleepDuration` are primary metrics: a
-worse value on any one of them alerts by itself. `temperatureDeviation`, `averageHrv`, and `lowestHeartRate` are
-supporting metrics: they can be worse than baseline without being marked as actionable attention. They are only marked
-for attention when they actually contribute to a real alert via the configured supporting metric alert count. Higher
-HRV and lower resting heart rate are treated as better baseline signals, not alert causes.
+immediately. For baseline signals, `sleepScore`, `readinessScore`, `totalSleepDuration`, `deepSleepDuration`, and
+`remSleepDuration` are primary metrics: a worse value on any one of them alerts by itself. `temperatureDeviation`,
+`averageHrv`, and `lowestHeartRate` are supporting metrics: they can be worse than baseline without being marked as
+actionable attention. They are only marked for attention when they actually contribute to a real alert via the
+configured supporting metric alert count. Higher HRV and lower resting heart rate are treated as better baseline
+signals, not alert causes.
 
 The rolling 30-day overview reuses the configured lower percentile spread for descriptive median bands, but it does not
 write or evaluate baseline attention state.

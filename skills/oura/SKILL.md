@@ -189,9 +189,8 @@ Format rules:
 - If `shouldAlert` is `true`, explain briefly that today's Oura data has one or more metrics that need attention.
 - If `shouldAlert` is `false`, use neutral daily-recap wording. Do not say the day needs attention.
 - Show the morning metrics when present: sleep score, readiness score, temperature deviation, HRV, lowest heart rate,
-  total sleep duration, and deep sleep duration.
-- Show deep sleep as concise context next to total sleep. Deep sleep is display-only; do not mark it as an attention
-  metric.
+  total sleep duration, deep sleep duration, and REM sleep duration.
+- Show deep sleep and REM sleep as concise context next to total sleep.
 - Mark metrics where `metricSignals[].attention` is `true`. Use `⚠️` on WhatsApp, Telegram, Discord, Slack, and
   WebChat/default. Use `ATTENTION` on plain-text channels.
 - Treat `severity: "better"` signals as positive or neutral context, not warnings.
@@ -208,7 +207,7 @@ Good morning! Here's your Oura summary for Monday, Jan 27.
 
 Today's data looks a bit outside your usual range.
 
-Sleep: ⚠️ 72 | Total 6h 15m | Deep 1h 5m
+Sleep: ⚠️ 72 | Total 6h 15m | ⚠️ Deep 42m | REM 1h 20m
 Readiness: ⚠️ 68 | Body temp +0.2C
 HRV: 39 ms | Lowest HR: 52 bpm
 
@@ -267,8 +266,7 @@ Format rules:
 
 - Start with a short header covering the seven-day range in the delivery language.
 - Then write one concise line per day, in chronological order.
-- Build each daily line from `days[].metrics`, ordered by `metricOrder`. Include `Deep` when `deepSleepDuration` is
-  present.
+- Build each daily line from `days[].metrics`, ordered by `metricOrder`. Include `Deep` and `REM` when present.
 - Add `activity.steps` and `stress.daySummary` when available because they reflect the completed calendar day.
 - Use `days[].summaryLine` as English fallback context only. For non-English output, render from structured fields
   instead of translating `summaryLine` literally.
@@ -286,13 +284,13 @@ Example tone (plain text, structure only):
 ```text
 Your Oura overview for Apr 4 – Apr 10.
 
-Sat: Sleep 81 | Readiness 84 | Total 6h 28m | Deep 58m | ⚠️ Temp +0.3C
-Sun: Sleep 79 | ⚠️ Readiness 76 | Total 6h 5m | Deep 52m | ⚠️ Lowest HR 55 bpm | ⚠️ HRV 30 ms
-Mon: Sleep 88 | Readiness 87 | Total 7h 41m | Deep 1h 12m | Temp +0.0C | Lowest HR 50 bpm | HRV 42 ms
-Tue: Sleep 85 | Readiness 80 | Total 6h 55m | Deep 1h 3m | ⚠️ Temp +0.2C | ⚠️ Lowest HR 64 bpm | HRV 18 ms
-Wed: Sleep 86 | Readiness 85 | Total 7h 12m | Deep 1h 5m | Temp +0.1C | Lowest HR 61 bpm | HRV 20 ms
-Thu: Sleep 83 | Readiness 82 | Total 6h 44m | Deep 55m | ⚠️ Temp +0.2C | Lowest HR 62 bpm | HRV 19 ms | Steps 8.4k | Stress steady
-Fri: Sleep 85 | Readiness 86 | Total 6h 52m | Deep 1h 1m | Temp +0.1C | Lowest HR 60 bpm | HRV 21 ms | Steps 9.1k | Stress relaxed
+Sat: Sleep 81 | Readiness 84 | Total 6h 28m | Deep 58m | REM 1h 18m | ⚠️ Temp +0.3C
+Sun: Sleep 79 | ⚠️ Readiness 76 | Total 6h 5m | ⚠️ Deep 52m | REM 1h 10m | ⚠️ Lowest HR 55 bpm | ⚠️ HRV 30 ms
+Mon: Sleep 88 | Readiness 87 | Total 7h 41m | Deep 1h 12m | REM 1h 31m | Temp +0.0C | Lowest HR 50 bpm | HRV 42 ms
+Tue: Sleep 85 | Readiness 80 | Total 6h 55m | Deep 1h 3m | ⚠️ REM 58m | ⚠️ Temp +0.2C | ⚠️ Lowest HR 64 bpm | HRV 18 ms
+Wed: Sleep 86 | Readiness 85 | Total 7h 12m | Deep 1h 5m | REM 1h 27m | Temp +0.1C | Lowest HR 61 bpm | HRV 20 ms
+Thu: Sleep 83 | Readiness 82 | Total 6h 44m | Deep 55m | REM 1h 22m | ⚠️ Temp +0.2C | Lowest HR 62 bpm | HRV 19 ms | Steps 8.4k | Stress steady
+Fri: Sleep 85 | Readiness 86 | Total 6h 52m | Deep 1h 1m | REM 1h 24m | Temp +0.1C | Lowest HR 60 bpm | HRV 21 ms | Steps 9.1k | Stress relaxed
 
 Main pattern: temperature was the most repeated attention signal this week.
 ```
@@ -317,8 +315,8 @@ Format rules:
 - Start with a short header covering the 30-day range and percentile band.
 - Show medians with their percentile band in parentheses.
 - Use the configured `percentileBand.label`, usually `P25-P75`.
-- Include sleep score, total sleep, deep sleep, readiness, HRV, lowest heart rate, temperature deviation, and steps
-  when present.
+- Include sleep score, total sleep, deep sleep, REM sleep, readiness, HRV, lowest heart rate, temperature deviation, and
+  steps when present.
 - End with a compact data-coverage line using `dataCoverage.sleepDays`, `dataCoverage.activityDays`, and
   `dataCoverage.totalDays`.
 - Keep it concise, roughly 5-7 lines total.
@@ -330,7 +328,7 @@ Example tone (plain text, structure only):
 ```text
 Oura 30-day recap · May 6-Jun 4 · medians with P25-P75
 
-Sleep: 82 (78-86) | Total 6h 52m (6h 18m-7h 24m) | Deep 1h 6m (52m-1h 19m)
+Sleep: 82 (78-86) | Total 6h 52m (6h 18m-7h 24m) | Deep 1h 6m (52m-1h 19m) | REM 1h 24m (1h 4m-1h 38m)
 Readiness: 79 (74-84) | HRV 22 ms (18-29) | Lowest HR 61 bpm (57-64)
 Temp: +0.0C (-0.1 to +0.2) | Steps 8.7k (6.2k-11.1k)
 

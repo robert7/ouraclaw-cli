@@ -48,6 +48,8 @@ export const BASELINE_METRICS = [
   'averageHrv',
   'lowestHeartRate',
   'totalSleepDuration',
+  'deepSleepDuration',
+  'remSleepDuration',
 ] as const;
 
 export const OURA_ENDPOINTS = [

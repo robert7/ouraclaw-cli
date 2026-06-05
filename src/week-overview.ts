@@ -26,6 +26,7 @@ const metricOrder: WeekOverviewMetricKey[] = [
   'readinessScore',
   'totalSleepDuration',
   'deepSleepDuration',
+  'remSleepDuration',
   'temperatureDeviation',
   'lowestHeartRate',
   'averageHrv',
@@ -39,6 +40,7 @@ const metricUnits: Record<WeekOverviewMetricKey, WeekOverviewMetric['unit']> = {
   lowestHeartRate: 'bpm',
   totalSleepDuration: 'seconds',
   deepSleepDuration: 'seconds',
+  remSleepDuration: 'seconds',
 };
 
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -71,6 +73,7 @@ function formatMetricValue(metric: WeekOverviewMetricKey, value: number): string
       return `${value} bpm`;
     case 'totalSleepDuration':
     case 'deepSleepDuration':
+    case 'remSleepDuration':
       return formatDuration(value);
   }
 }
@@ -88,19 +91,6 @@ function toWeekMetric(signal: MetricSignal): WeekOverviewMetric | null {
   };
 }
 
-function toDeepSleepMetric(today: MorningToday): WeekOverviewMetric | null {
-  if (today.deepSleepDuration == null) {
-    return null;
-  }
-  return {
-    key: 'deepSleepDuration',
-    value: today.deepSleepDuration,
-    unit: metricUnits.deepSleepDuration,
-    displayValue: formatMetricValue('deepSleepDuration', today.deepSleepDuration),
-    attention: false,
-  };
-}
-
 function getWeekday(day: string): string {
   const [year, month, date] = day.split('-').map(Number);
   return weekdays[new Date(Date.UTC(year, month - 1, date)).getUTCDay()];
@@ -115,6 +105,7 @@ function buildSummaryLine(metrics: WeekOverviewMetric[]): string {
     lowestHeartRate: 'Lowest HR',
     totalSleepDuration: 'Total',
     deepSleepDuration: 'Deep',
+    remSleepDuration: 'REM',
   };
 
   return metricOrder
@@ -205,6 +196,10 @@ function formatTopAttentionMetric(metric: BaselineMetricKey): string {
       return 'lowest heart rate';
     case 'totalSleepDuration':
       return 'total sleep';
+    case 'deepSleepDuration':
+      return 'deep sleep';
+    case 'remSleepDuration':
+      return 'REM sleep';
   }
 }
 
@@ -267,6 +262,7 @@ export function buildWeekOverview(input: {
       lowestHeartRate: record?.lowestHeartRate ?? null,
       totalSleepDuration: record?.totalSleepDuration ?? null,
       deepSleepDuration: record?.deepSleepDuration ?? null,
+      remSleepDuration: record?.remSleepDuration ?? null,
     };
   });
 
@@ -282,23 +278,15 @@ export function buildWeekOverview(input: {
     const signals =
       result.metricSignals.length > 0 ? result.metricSignals : buildFallbackSignals(today);
     const metrics = metricOrder.flatMap((metric) => {
-      if (metric === 'deepSleepDuration') {
-        const deepSleepMetric = toDeepSleepMetric(today);
-        return deepSleepMetric ? [deepSleepMetric] : [];
-      }
       const signal = signals.find((entry) => entry.metric === metric);
       const weekMetric = signal ? toWeekMetric(signal) : null;
       return weekMetric ? [weekMetric] : [];
     });
-    const attentionMetrics = metricOrder.filter(
-      (metric): metric is BaselineMetricKey =>
-        metric !== 'deepSleepDuration' &&
-        signals.some((signal) => signal.metric === metric && signal.attention)
+    const attentionMetrics = metricOrder.filter((metric): metric is BaselineMetricKey =>
+      signals.some((signal) => signal.metric === metric && signal.attention)
     );
     const missingMetrics = metricOrder.filter((metric) =>
-      metric === 'deepSleepDuration'
-        ? today.deepSleepDuration == null
-        : signals.some((signal) => signal.metric === metric && signal.value == null)
+      signals.some((signal) => signal.metric === metric && signal.value == null)
     );
     const activity = normalizeActivity(activityByDay.get(today.day));
     const stress = normalizeStress(stressByDay.get(today.day));

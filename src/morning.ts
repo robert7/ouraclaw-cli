@@ -16,6 +16,8 @@ const primaryAlertMetrics = new Set<BaselineMetricKey>([
   'sleepScore',
   'readinessScore',
   'totalSleepDuration',
+  'deepSleepDuration',
+  'remSleepDuration',
 ]);
 
 const supportingAlertMetrics = new Set<BaselineMetricKey>([
@@ -30,6 +32,8 @@ const baselineLowReasonMap: Partial<Record<BaselineMetricKey, string>> = {
   temperatureDeviation: 'baseline_temperature_deviation_out_of_range',
   averageHrv: 'baseline_hrv_low',
   totalSleepDuration: 'baseline_total_sleep_duration_low',
+  deepSleepDuration: 'baseline_deep_sleep_duration_low',
+  remSleepDuration: 'baseline_rem_sleep_duration_low',
 };
 
 const baselineHighReasonMap: Partial<Record<BaselineMetricKey, string>> = {
@@ -49,6 +53,8 @@ function isLowerValueWorse(metric: BaselineMetricKey): boolean {
     metric === 'readinessScore' ||
     metric === 'averageHrv' ||
     metric === 'totalSleepDuration' ||
+    metric === 'deepSleepDuration' ||
+    metric === 'remSleepDuration' ||
     metric === 'temperatureDeviation'
   );
 }
@@ -72,12 +78,32 @@ function buildMorningMessage(result: MorningResult): string {
   const intro = result.shouldAlert
     ? `Good morning. Today's Oura summary for ${result.today.day} shows a few attention signals.`
     : `Good morning. Today's Oura summary for ${result.today.day} is ready. Nothing urgent stands out.`;
+  const formatAttentionMetric = (metric: BaselineMetricKey, text: string) => {
+    const signal = result.metricSignals.find((entry) => entry.metric === metric);
+    return signal?.attention ? `⚠️ ${text}` : text;
+  };
   const sleepLineParts = [
-    `Sleep: ${result.today.sleepScore ?? 'n/a'}`,
-    `Total ${formatDuration(result.today.totalSleepDuration ?? null)}`,
+    `Sleep: ${formatAttentionMetric('sleepScore', String(result.today.sleepScore ?? 'n/a'))}`,
+    formatAttentionMetric(
+      'totalSleepDuration',
+      `Total ${formatDuration(result.today.totalSleepDuration ?? null)}`
+    ),
   ];
   if (result.today.deepSleepDuration != null) {
-    sleepLineParts.push(`Deep ${formatDuration(result.today.deepSleepDuration)}`);
+    sleepLineParts.push(
+      formatAttentionMetric(
+        'deepSleepDuration',
+        `Deep ${formatDuration(result.today.deepSleepDuration)}`
+      )
+    );
+  }
+  if (result.today.remSleepDuration != null) {
+    sleepLineParts.push(
+      formatAttentionMetric(
+        'remSleepDuration',
+        `REM ${formatDuration(result.today.remSleepDuration)}`
+      )
+    );
   }
 
   const lines = [

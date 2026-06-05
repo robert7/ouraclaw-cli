@@ -110,8 +110,8 @@ optional `deliveryKey`, `deliveryMode`, `today`, optional `baseline`, `alertMetr
 `metricSignals`, and optional `message` for sendable results. Within `metricSignals`, `attention: true` is reserved
 for actionable metrics that actually contributed to `alertMetrics`.
 
-When available, `today.deepSleepDuration` is included as display context beside total sleep. It is not part of
-`metricSignals` and does not affect attention decisions.
+When available, `today.deepSleepDuration` and `today.remSleepDuration` are included beside total sleep. Both are
+baseline decision metrics and can contribute to `alertMetrics`.
 
 With `--text`, sendable morning output is line-oriented for readability.
 
@@ -127,7 +127,7 @@ plus the next six days. With only `--end-date`, the range is that date and the p
 inclusive range must be exactly seven days.
 
 For weekly recap rendering, each row is labeled by the completed calendar day being reviewed. The underlying sleep,
-readiness, temperature, HRV, heart-rate, total-sleep, and deep-sleep bundle is shifted back one day from the
+readiness, temperature, HRV, heart-rate, total-sleep, deep-sleep, and REM-sleep bundle is shifted back one day from the
 morning-style Oura record ownership, so a Monday run can show the previous Monday through Sunday while still including
 Sunday-night to Monday-morning sleep on the Sunday row.
 
@@ -138,8 +138,8 @@ completed-day `activity` and `stress` context. `summaryLine` omits missing value
 attention metrics with `⚠️`. For non-English summaries, render from `metricOrder`, `metrics`, and `attentionMetrics`
 instead of translating `summaryLine`.
 
-Weekly `metrics` can include `deepSleepDuration` after `totalSleepDuration`; it is display-only and never marked as
-attention.
+Weekly `metrics` can include `deepSleepDuration` and `remSleepDuration` after `totalSleepDuration`; both can be marked
+as attention when they contribute to `alertMetrics`.
 
 `overview` also includes step and stress rollups for the seven-day window:
 
@@ -168,7 +168,7 @@ With `--text`, the CLI prints a compact English recap in this shape:
 ```text
 Oura 30-day recap · May 6-Jun 4 · medians with P25-P75
 
-Sleep: 82 (78-86) | Total 6h 52m (6h 18m-7h 24m) | Deep 1h 6m (52m-1h 19m)
+Sleep: 82 (78-86) | Total 6h 52m (6h 18m-7h 24m) | Deep 1h 6m (52m-1h 19m) | REM 1h 24m (1h 4m-1h 38m)
 Readiness: 79 (74-84) | HRV 22 ms (18-29) | Lowest HR 61 bpm (57-64)
 Temp: +0.0C (-0.1 to +0.2) | Steps 8.7k (6.2k-11.1k)
 

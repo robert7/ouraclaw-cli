@@ -18,6 +18,8 @@ const baseline: BaselineSnapshot = {
     averageHrv: { median: 40, low: 35, high: 45, sampleSize: 21 },
     lowestHeartRate: { median: 50, low: 48, high: 52, sampleSize: 21 },
     totalSleepDuration: { median: 27000, low: 25000, high: 29000, sampleSize: 21 },
+    deepSleepDuration: { median: 4500, low: 4000, high: 5200, sampleSize: 21 },
+    remSleepDuration: { median: 5200, low: 4800, high: 5800, sampleSize: 21 },
   },
 };
 
@@ -47,6 +49,7 @@ describe('week-overview', () => {
           lowestHeartRate: 49,
           totalSleepDuration: 28000,
           deepSleepDuration: 4200,
+          remSleepDuration: 5200,
         },
         {
           day: '2026-04-05',
@@ -57,6 +60,7 @@ describe('week-overview', () => {
           lowestHeartRate: 55,
           totalSleepDuration: 27000,
           deepSleepDuration: 3900,
+          remSleepDuration: 4500,
         },
         {
           day: '2026-04-06',
@@ -66,7 +70,8 @@ describe('week-overview', () => {
           averageHrv: 50,
           lowestHeartRate: 46,
           totalSleepDuration: 26000,
-          deepSleepDuration: 3000,
+          deepSleepDuration: 4200,
+          remSleepDuration: 5200,
         },
         {
           day: '2026-04-07',
@@ -76,7 +81,8 @@ describe('week-overview', () => {
           averageHrv: 30,
           lowestHeartRate: 49,
           totalSleepDuration: 26000,
-          deepSleepDuration: 3300,
+          deepSleepDuration: 4300,
+          remSleepDuration: 5200,
         },
       ],
       activityRecords: [
@@ -149,6 +155,7 @@ describe('week-overview', () => {
       'readinessScore',
       'totalSleepDuration',
       'deepSleepDuration',
+      'remSleepDuration',
       'temperatureDeviation',
       'lowestHeartRate',
       'averageHrv',
@@ -157,7 +164,9 @@ describe('week-overview', () => {
     expect(result.overview.attentionDays).toBe(1);
     expect(result.overview.topAttentionMetrics).toEqual([
       { metric: 'averageHrv', count: 1 },
+      { metric: 'deepSleepDuration', count: 1 },
       { metric: 'lowestHeartRate', count: 1 },
+      { metric: 'remSleepDuration', count: 1 },
     ]);
     expect(result.overview.totalSteps).toBe(29600);
     expect(result.overview.averageSteps).toBe(9867);
@@ -171,8 +180,13 @@ describe('week-overview', () => {
         weekday: 'Sunday',
         shouldAlert: true,
         summaryLine:
-          'Sleep 81 | Readiness 82 | Total 7h 30m | Deep 1h 5m | Temp +0.0C | ⚠️ Lowest HR 55 bpm | ⚠️ HRV 30 ms',
-        attentionMetrics: ['lowestHeartRate', 'averageHrv'],
+          'Sleep 81 | Readiness 82 | Total 7h 30m | ⚠️ Deep 1h 5m | ⚠️ REM 1h 15m | Temp +0.0C | ⚠️ Lowest HR 55 bpm | ⚠️ HRV 30 ms',
+        attentionMetrics: [
+          'deepSleepDuration',
+          'remSleepDuration',
+          'lowestHeartRate',
+          'averageHrv',
+        ],
         missingMetrics: [],
         activity: {
           score: 79,
@@ -194,7 +208,14 @@ describe('week-overview', () => {
           value: 3900,
           unit: 'seconds',
           displayValue: '1h 5m',
-          attention: false,
+          attention: true,
+        },
+        {
+          key: 'remSleepDuration',
+          value: 4500,
+          unit: 'seconds',
+          displayValue: '1h 15m',
+          attention: true,
         },
         {
           key: 'averageHrv',
@@ -219,7 +240,7 @@ describe('week-overview', () => {
         day: '2026-04-07',
         shouldAlert: false,
         summaryLine:
-          'Sleep 82 | Readiness 83 | Total 7h 13m | Deep 55m | Temp +0.0C | Lowest HR 49 bpm | HRV 30 ms',
+          'Sleep 82 | Readiness 83 | Total 7h 13m | Deep 1h 12m | REM 1h 27m | Temp +0.0C | Lowest HR 49 bpm | HRV 30 ms',
         attentionMetrics: [],
         activity: {
           score: null,
@@ -244,6 +265,7 @@ describe('week-overview', () => {
           'readinessScore',
           'totalSleepDuration',
           'deepSleepDuration',
+          'remSleepDuration',
           'temperatureDeviation',
           'lowestHeartRate',
           'averageHrv',
@@ -278,6 +300,7 @@ describe('week-overview', () => {
           lowestHeartRate: 49,
           totalSleepDuration: 28000,
           deepSleepDuration: 4200,
+          remSleepDuration: 5200,
         },
         {
           day: '2026-04-14',
@@ -288,6 +311,7 @@ describe('week-overview', () => {
           lowestHeartRate: 55,
           totalSleepDuration: 27000,
           deepSleepDuration: 3900,
+          remSleepDuration: 4500,
         },
       ],
       activityRecords: [
@@ -336,8 +360,8 @@ describe('week-overview', () => {
       [
         'Your Oura overview for Apr 13 - Apr 19.',
         '',
-        'Mon: Sleep 86 | Readiness 85 | Total 7h 47m | Deep 1h 10m | Temp +0.0C | Lowest HR 49 bpm | HRV 41 ms | Steps 8.3k | Stress steady',
-        'Tue: Sleep 81 | Readiness 82 | Total 7h 30m | Deep 1h 5m | Temp +0.0C | ⚠️ Lowest HR 55 bpm | ⚠️ HRV 30 ms | Steps 9.2k | Stress stressful',
+        'Mon: Sleep 86 | Readiness 85 | Total 7h 47m | Deep 1h 10m | REM 1h 27m | Temp +0.0C | Lowest HR 49 bpm | HRV 41 ms | Steps 8.3k | Stress steady',
+        'Tue: Sleep 81 | Readiness 82 | Total 7h 30m | ⚠️ Deep 1h 5m | ⚠️ REM 1h 15m | Temp +0.0C | ⚠️ Lowest HR 55 bpm | ⚠️ HRV 30 ms | Steps 9.2k | Stress stressful',
         'Wed: data not ready',
         'Thu: data not ready',
         'Fri: data not ready',
@@ -347,5 +371,23 @@ describe('week-overview', () => {
         'Main pattern: HRV was the most repeated attention signal this week.',
       ].join('\n')
     );
+    expect(
+      buildWeekOverviewText({
+        ...result,
+        overview: {
+          ...result.overview,
+          topAttentionMetrics: [{ metric: 'deepSleepDuration', count: 2 }],
+        },
+      })
+    ).toContain('Main pattern: deep sleep was the most repeated attention signal this week.');
+    expect(
+      buildWeekOverviewText({
+        ...result,
+        overview: {
+          ...result.overview,
+          topAttentionMetrics: [{ metric: 'remSleepDuration', count: 2 }],
+        },
+      })
+    ).toContain('Main pattern: REM sleep was the most repeated attention signal this week.');
   });
 });

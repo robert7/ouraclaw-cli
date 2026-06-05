@@ -13,6 +13,7 @@ const metricOrder: MonthOverviewMetricKey[] = [
   'sleepScore',
   'totalSleepDuration',
   'deepSleepDuration',
+  'remSleepDuration',
   'readinessScore',
   'averageHrv',
   'lowestHeartRate',
@@ -24,6 +25,7 @@ const metricUnits: Record<MonthOverviewMetricKey, MonthOverviewMetric['unit']> =
   sleepScore: 'score',
   totalSleepDuration: 'seconds',
   deepSleepDuration: 'seconds',
+  remSleepDuration: 'seconds',
   readinessScore: 'score',
   averageHrv: 'milliseconds',
   lowestHeartRate: 'bpm',
@@ -57,6 +59,7 @@ function formatMetricValue(metric: MonthOverviewMetricKey, value: number): strin
       return formatRounded(value);
     case 'totalSleepDuration':
     case 'deepSleepDuration':
+    case 'remSleepDuration':
       return formatDuration(value);
     case 'averageHrv':
       return `${formatRounded(value)} ms`;
@@ -76,6 +79,7 @@ function formatMetricRange(metric: MonthOverviewMetricKey, low: number, high: nu
       return `${formatRounded(low)}-${formatRounded(high)}`;
     case 'totalSleepDuration':
     case 'deepSleepDuration':
+    case 'remSleepDuration':
       return `${formatDuration(low)}-${formatDuration(high)}`;
     case 'averageHrv':
     case 'lowestHeartRate':
@@ -186,6 +190,11 @@ export function buildMonthOverview(input: {
       lower
     ),
     buildMonthMetric(
+      'remSleepDuration',
+      finiteValues(input.records.map((record) => record.remSleepDuration)),
+      lower
+    ),
+    buildMonthMetric(
       'readinessScore',
       finiteValues(input.records.map((record) => record.readinessScore)),
       lower
@@ -233,6 +242,7 @@ export function buildMonthOverview(input: {
         metricByKey.get('sleepScore'),
         metricByKey.get('totalSleepDuration'),
         metricByKey.get('deepSleepDuration'),
+        metricByKey.get('remSleepDuration'),
       ]),
       readinessDays: maxSampleSize([
         metricByKey.get('readinessScore'),
@@ -251,6 +261,7 @@ export function buildMonthOverviewText(result: MonthOverviewResult): string {
   const sleepScore = metricByKey.get('sleepScore');
   const totalSleep = metricByKey.get('totalSleepDuration');
   const deepSleep = metricByKey.get('deepSleepDuration');
+  const remSleep = metricByKey.get('remSleepDuration');
   const readiness = metricByKey.get('readinessScore');
   const hrv = metricByKey.get('averageHrv');
   const lowestHeartRate = metricByKey.get('lowestHeartRate');
@@ -261,6 +272,7 @@ export function buildMonthOverviewText(result: MonthOverviewResult): string {
     sleepScore ? formatMetric(sleepScore) : null,
     totalSleep ? `Total ${formatMetric(totalSleep)}` : null,
     deepSleep ? `Deep ${formatMetric(deepSleep)}` : null,
+    remSleep ? `REM ${formatMetric(remSleep)}` : null,
   ].filter((part): part is string => Boolean(part));
   const readinessParts = [
     readiness ? formatMetric(readiness) : null,

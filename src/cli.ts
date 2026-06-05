@@ -17,6 +17,7 @@ import {
   defaultBaselineConfig,
   getAutomaticBaselineWindow,
   getManualBaselineWindow,
+  isBaselineComplete,
   isBaselineStale,
   rebuildAutomaticBaseline,
   rebuildManualBaseline,
@@ -835,6 +836,7 @@ function sleepPeriodToBaselineRecord(record: SleepPeriod): OuraRecord {
     lowestHeartRate: record.lowest_heart_rate,
     totalSleepDuration: record.total_sleep_duration,
     deepSleepDuration: record.deep_sleep_duration,
+    remSleepDuration: record.rem_sleep_duration,
   };
 }
 
@@ -867,6 +869,7 @@ function hasAnyMorningRecordValue(record: OuraRecord): boolean {
     record.lowestHeartRate,
     record.totalSleepDuration,
     record.deepSleepDuration,
+    record.remSleepDuration,
   ].some((value) => typeof value === 'number' && Number.isFinite(value));
 }
 
@@ -908,6 +911,7 @@ export async function fetchMorningBaselineRecordsForRange(
         lowestHeartRate: sleepRecord?.lowestHeartRate ?? null,
         totalSleepDuration: sleepRecord?.totalSleepDuration ?? null,
         deepSleepDuration: sleepRecord?.deepSleepDuration ?? null,
+        remSleepDuration: sleepRecord?.remSleepDuration ?? null,
       };
     })
     .filter(hasAnyMorningRecordValue);
@@ -957,7 +961,7 @@ async function buildMorningResult(
     ? 'ready'
     : 'missing';
 
-  if (!baseline || isBaselineStale(baseline, new Date())) {
+  if (!baseline || isBaselineStale(baseline, new Date()) || !isBaselineComplete(baseline)) {
     try {
       const window = getAutomaticBaselineWindow(new Date());
       const records = await fetchMorningBaselineRecordsForRange(
@@ -984,6 +988,7 @@ async function buildMorningResult(
       lowestHeartRate: summaryInputs.sleepRecord?.lowest_heart_rate ?? null,
       totalSleepDuration: summaryInputs.sleepRecord?.total_sleep_duration ?? null,
       deepSleepDuration: summaryInputs.sleepRecord?.deep_sleep_duration ?? null,
+      remSleepDuration: summaryInputs.sleepRecord?.rem_sleep_duration ?? null,
     },
     thresholds: state.thresholds,
     baselineConfig: state.baselineConfig,
@@ -1213,7 +1218,7 @@ export async function runWeekOverview(
     ? 'ready'
     : 'missing';
 
-  if (!baseline || isBaselineStale(baseline, new Date())) {
+  if (!baseline || isBaselineStale(baseline, new Date()) || !isBaselineComplete(baseline)) {
     try {
       const window = getAutomaticBaselineWindow(new Date());
       const baselineRecords = await fetchMorningBaselineRecordsForRange(

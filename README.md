@@ -174,7 +174,8 @@ baseline tuning, and delivery-confirmation flow.
 ## Weekly Overview
 
 `summary week-overview` builds a compact seven-day JSON overview that is meant for brief weekly recaps: one line per
-day, all six optimized metrics in a fixed order, and explicit attention markers for the values that need a closer look.
+day, the optimized sleep/readiness/recovery metrics in a fixed order, and explicit attention markers for the values
+that need a closer look.
 
 The command is useful on its own for manual review or external automations, and the shipped Oura skill now includes a
 dedicated weekly template for localized delivery. This also sets up the planned Monday flow where the weekly overview

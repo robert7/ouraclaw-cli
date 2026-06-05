@@ -193,6 +193,7 @@ export interface OuraRecord {
   lowestHeartRate?: number | null;
   totalSleepDuration?: number | null;
   deepSleepDuration?: number | null;
+  remSleepDuration?: number | null;
 }
 
 export interface OAuthStartInput {
@@ -252,6 +253,7 @@ export interface MorningToday {
   lowestHeartRate?: number | null;
   totalSleepDuration?: number | null;
   deepSleepDuration?: number | null;
+  remSleepDuration?: number | null;
 }
 
 export interface MorningInput {
@@ -289,7 +291,7 @@ export interface SummaryResult {
   payload: Record<string, unknown>;
 }
 
-export type WeekOverviewMetricKey = BaselineMetricKey | 'deepSleepDuration';
+export type WeekOverviewMetricKey = BaselineMetricKey;
 
 export interface WeekOverviewMetric {
   key: WeekOverviewMetricKey;

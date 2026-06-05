@@ -120,3 +120,7 @@ export function rebuildManualBaseline(
 export function isBaselineStale(snapshot: BaselineSnapshot, now: Date): boolean {
   return now.getTime() - new Date(snapshot.updatedAt).getTime() > 7 * 24 * 60 * 60 * 1000;
 }
+
+export function isBaselineComplete(snapshot: BaselineSnapshot): boolean {
+  return BASELINE_METRICS.every((metric) => Boolean(snapshot.metrics[metric]));
+}
