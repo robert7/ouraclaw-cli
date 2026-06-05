@@ -185,8 +185,10 @@ Format rules:
 - Start with a brief morning greeting and today's date in the delivery language.
 - If `shouldAlert` is `true`, explain briefly that today's Oura data has one or more metrics that need attention.
 - If `shouldAlert` is `false`, use neutral daily-recap wording. Do not say the day needs attention.
-- Show all six morning metrics when present: sleep score, readiness score, temperature deviation, HRV, lowest heart
-  rate, and total sleep duration.
+- Show the morning metrics when present: sleep score, readiness score, temperature deviation, HRV, lowest heart rate,
+  total sleep duration, and deep sleep duration.
+- Show deep sleep as concise context next to total sleep. Deep sleep is display-only; do not mark it as an attention
+  metric.
 - Mark metrics where `metricSignals[].attention` is `true`. Use `⚠️` on WhatsApp, Telegram, Discord, Slack, and
   WebChat/default. Use `ATTENTION` on plain-text channels.
 - Treat `severity: "better"` signals as positive or neutral context, not warnings.
@@ -203,7 +205,7 @@ Good morning! Here's your Oura summary for Monday, Jan 27.
 
 Today's data looks a bit outside your usual range.
 
-Sleep: ⚠️ 72 | Total 6h 15m
+Sleep: ⚠️ 72 | Total 6h 15m | Deep 1h 5m
 Readiness: ⚠️ 68 | Body temp +0.2C
 HRV: 39 ms | Lowest HR: 52 bpm
 
@@ -262,7 +264,8 @@ Format rules:
 
 - Start with a short header covering the seven-day range in the delivery language.
 - Then write one concise line per day, in chronological order.
-- Build each daily line from `days[].metrics`, ordered by `metricOrder`.
+- Build each daily line from `days[].metrics`, ordered by `metricOrder`. Include `Deep` when `deepSleepDuration` is
+  present.
 - Add `activity.steps` and `stress.daySummary` when available because they reflect the completed calendar day.
 - Use `days[].summaryLine` as English fallback context only. For non-English output, render from structured fields
   instead of translating `summaryLine` literally.
@@ -280,13 +283,13 @@ Example tone (plain text, structure only):
 ```text
 Your Oura overview for Apr 4 – Apr 10.
 
-Sat: Sleep 81 | Readiness 84 | Total 6h 28m | ⚠️ Temp +0.3C
-Sun: Sleep 79 | ⚠️ Readiness 76 | Total 6h 05m | ⚠️ Lowest HR 55 bpm | ⚠️ HRV 30 ms
-Mon: Sleep 88 | Readiness 87 | Total 7h 41m | Temp +0.0C | Lowest HR 50 bpm | HRV 42 ms
-Tue: Sleep 85 | Readiness 80 | Total 6h 55m | ⚠️ Temp +0.2C | ⚠️ Lowest HR 64 bpm | HRV 18 ms
-Wed: Sleep 86 | Readiness 85 | Total 7h 12m | Temp +0.1C | Lowest HR 61 bpm | HRV 20 ms
-Thu: Sleep 83 | Readiness 82 | Total 6h 44m | ⚠️ Temp +0.2C | Lowest HR 62 bpm | HRV 19 ms | Steps 8.4k | Stress steady
-Fri: Sleep 85 | Readiness 86 | Total 6h 52m | Temp +0.1C | Lowest HR 60 bpm | HRV 21 ms | Steps 9.1k | Stress relaxed
+Sat: Sleep 81 | Readiness 84 | Total 6h 28m | Deep 58m | ⚠️ Temp +0.3C
+Sun: Sleep 79 | ⚠️ Readiness 76 | Total 6h 5m | Deep 52m | ⚠️ Lowest HR 55 bpm | ⚠️ HRV 30 ms
+Mon: Sleep 88 | Readiness 87 | Total 7h 41m | Deep 1h 12m | Temp +0.0C | Lowest HR 50 bpm | HRV 42 ms
+Tue: Sleep 85 | Readiness 80 | Total 6h 55m | Deep 1h 3m | ⚠️ Temp +0.2C | ⚠️ Lowest HR 64 bpm | HRV 18 ms
+Wed: Sleep 86 | Readiness 85 | Total 7h 12m | Deep 1h 5m | Temp +0.1C | Lowest HR 61 bpm | HRV 20 ms
+Thu: Sleep 83 | Readiness 82 | Total 6h 44m | Deep 55m | ⚠️ Temp +0.2C | Lowest HR 62 bpm | HRV 19 ms | Steps 8.4k | Stress steady
+Fri: Sleep 85 | Readiness 86 | Total 6h 52m | Deep 1h 1m | Temp +0.1C | Lowest HR 60 bpm | HRV 21 ms | Steps 9.1k | Stress relaxed
 
 Main pattern: temperature was the most repeated attention signal this week.
 ```

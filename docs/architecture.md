@@ -50,6 +50,9 @@ The stored baseline tracks these morning decision metrics when available:
 - `lowest_heart_rate`
 - `total_sleep_duration`
 
+Morning and weekly summaries may also display `deep_sleep_duration` from the detailed sleep period. It is intentionally
+not part of the baseline or attention model.
+
 For each metric the snapshot stores a median plus ordinary low/high bounds. The ordinary band is configurable through a
 lower percentile and its mirrored upper percentile. With the default `25`, the ordinary band is the 25th to 75th
 percentile. A same-day value outside that band becomes a direction-aware metric signal.

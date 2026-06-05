@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Added display-only deep sleep duration to `summary morning` and `summary week-overview` output.
+
 ### Changed
 
 - Reduced Dependabot version-update checks to monthly runs on the 15th.
@@ -11,6 +15,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fixed `summary morning --text` formatting so deep sleep and readiness appear on separate lines.
 - Hardened OAuth callback capture so stray browser probes no longer abort the local login flow before the real
   authorization redirect arrives.
 

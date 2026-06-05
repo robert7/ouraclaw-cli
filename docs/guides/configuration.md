@@ -35,6 +35,9 @@ The baseline snapshot stores metadata about its source window plus per-metric bo
 - `lowest_heart_rate`
 - `total_sleep_duration`
 
+`deep_sleep_duration` can appear in morning and weekly summary output, but it is display-only and is not stored in the
+baseline snapshot.
+
 Automatic baseline refresh is attempted only by `summary morning`.
 
 ## Scheduling

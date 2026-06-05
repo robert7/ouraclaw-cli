@@ -72,10 +72,17 @@ function buildMorningMessage(result: MorningResult): string {
   const intro = result.shouldAlert
     ? `Good morning. Today's Oura summary for ${result.today.day} shows a few attention signals.`
     : `Good morning. Today's Oura summary for ${result.today.day} is ready. Nothing urgent stands out.`;
+  const sleepLineParts = [
+    `Sleep: ${result.today.sleepScore ?? 'n/a'}`,
+    `Total ${formatDuration(result.today.totalSleepDuration ?? null)}`,
+  ];
+  if (result.today.deepSleepDuration != null) {
+    sleepLineParts.push(`Deep ${formatDuration(result.today.deepSleepDuration)}`);
+  }
 
   const lines = [
     intro,
-    `Sleep ${result.today.sleepScore ?? 'n/a'} | Total ${formatDuration(result.today.totalSleepDuration ?? null)}`,
+    sleepLineParts.join(' | '),
     `Readiness ${result.today.readinessScore ?? 'n/a'} | Temp ${formatTemperature(result.today.temperatureDeviation)}`,
     `HRV ${result.today.averageHrv ?? 'n/a'} ms | Lowest HR ${result.today.lowestHeartRate ?? 'n/a'} bpm`,
   ];
@@ -84,7 +91,7 @@ function buildMorningMessage(result: MorningResult): string {
     lines.push(`Attention: ${result.alertReasons.map(humanizeReason).join(', ')}.`);
   }
 
-  return lines.join(' ');
+  return lines.join('\n');
 }
 
 function buildDeliveryKey(result: MorningResult): string {

@@ -46,6 +46,7 @@ describe('week-overview', () => {
           averageHrv: 41,
           lowestHeartRate: 49,
           totalSleepDuration: 28000,
+          deepSleepDuration: 4200,
         },
         {
           day: '2026-04-05',
@@ -55,6 +56,7 @@ describe('week-overview', () => {
           averageHrv: 30,
           lowestHeartRate: 55,
           totalSleepDuration: 27000,
+          deepSleepDuration: 3900,
         },
         {
           day: '2026-04-06',
@@ -64,6 +66,7 @@ describe('week-overview', () => {
           averageHrv: 50,
           lowestHeartRate: 46,
           totalSleepDuration: 26000,
+          deepSleepDuration: 3000,
         },
         {
           day: '2026-04-07',
@@ -73,6 +76,7 @@ describe('week-overview', () => {
           averageHrv: 30,
           lowestHeartRate: 49,
           totalSleepDuration: 26000,
+          deepSleepDuration: 3300,
         },
       ],
       activityRecords: [
@@ -144,6 +148,7 @@ describe('week-overview', () => {
       'sleepScore',
       'readinessScore',
       'totalSleepDuration',
+      'deepSleepDuration',
       'temperatureDeviation',
       'lowestHeartRate',
       'averageHrv',
@@ -166,7 +171,7 @@ describe('week-overview', () => {
         weekday: 'Sunday',
         shouldAlert: true,
         summaryLine:
-          'Sleep 81 | Readiness 82 | Total 7h 30m | Temp +0.0C | ⚠️ Lowest HR 55 bpm | ⚠️ HRV 30 ms',
+          'Sleep 81 | Readiness 82 | Total 7h 30m | Deep 1h 5m | Temp +0.0C | ⚠️ Lowest HR 55 bpm | ⚠️ HRV 30 ms',
         attentionMetrics: ['lowestHeartRate', 'averageHrv'],
         missingMetrics: [],
         activity: {
@@ -184,6 +189,13 @@ describe('week-overview', () => {
     );
     expect(result.days[1].metrics).toEqual(
       expect.arrayContaining([
+        {
+          key: 'deepSleepDuration',
+          value: 3900,
+          unit: 'seconds',
+          displayValue: '1h 5m',
+          attention: false,
+        },
         {
           key: 'averageHrv',
           value: 30,
@@ -207,7 +219,7 @@ describe('week-overview', () => {
         day: '2026-04-07',
         shouldAlert: false,
         summaryLine:
-          'Sleep 82 | Readiness 83 | Total 7h 13m | Temp +0.0C | Lowest HR 49 bpm | HRV 30 ms',
+          'Sleep 82 | Readiness 83 | Total 7h 13m | Deep 55m | Temp +0.0C | Lowest HR 49 bpm | HRV 30 ms',
         attentionMetrics: [],
         activity: {
           score: null,
@@ -231,6 +243,7 @@ describe('week-overview', () => {
           'sleepScore',
           'readinessScore',
           'totalSleepDuration',
+          'deepSleepDuration',
           'temperatureDeviation',
           'lowestHeartRate',
           'averageHrv',
@@ -264,6 +277,7 @@ describe('week-overview', () => {
           averageHrv: 41,
           lowestHeartRate: 49,
           totalSleepDuration: 28000,
+          deepSleepDuration: 4200,
         },
         {
           day: '2026-04-14',
@@ -273,6 +287,7 @@ describe('week-overview', () => {
           averageHrv: 30,
           lowestHeartRate: 55,
           totalSleepDuration: 27000,
+          deepSleepDuration: 3900,
         },
       ],
       activityRecords: [
@@ -321,8 +336,8 @@ describe('week-overview', () => {
       [
         'Your Oura overview for Apr 13 - Apr 19.',
         '',
-        'Mon: Sleep 86 | Readiness 85 | Total 7h 47m | Temp +0.0C | Lowest HR 49 bpm | HRV 41 ms | Steps 8.3k | Stress steady',
-        'Tue: Sleep 81 | Readiness 82 | Total 7h 30m | Temp +0.0C | ⚠️ Lowest HR 55 bpm | ⚠️ HRV 30 ms | Steps 9.2k | Stress stressful',
+        'Mon: Sleep 86 | Readiness 85 | Total 7h 47m | Deep 1h 10m | Temp +0.0C | Lowest HR 49 bpm | HRV 41 ms | Steps 8.3k | Stress steady',
+        'Tue: Sleep 81 | Readiness 82 | Total 7h 30m | Deep 1h 5m | Temp +0.0C | ⚠️ Lowest HR 55 bpm | ⚠️ HRV 30 ms | Steps 9.2k | Stress stressful',
         'Wed: data not ready',
         'Thu: data not ready',
         'Fri: data not ready',

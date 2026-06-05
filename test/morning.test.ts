@@ -29,6 +29,7 @@ const readyToday: MorningToday = {
   averageHrv: 40,
   lowestHeartRate: 49,
   totalSleepDuration: 28000,
+  deepSleepDuration: 3900,
 };
 
 describe('morning', () => {
@@ -256,6 +257,8 @@ describe('morning', () => {
     expect(result.shouldSend).toBe(true);
     expect(result.deliveryKey).toBeDefined();
     expect(result.message).toContain('Nothing urgent stands out');
+    expect(result.message).toContain('Deep 1h 5m');
+    expect(result.message).toContain('Deep 1h 5m\nReadiness 80');
     expect(result.alertMetrics).toEqual([]);
     expect(result.metricSignals).toHaveLength(6);
   });

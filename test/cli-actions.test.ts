@@ -393,6 +393,7 @@ describe('cli actions', () => {
             average_hrv: 20,
             lowest_heart_rate: 62,
             total_sleep_duration: 26000,
+            deep_sleep_duration: 3000,
           },
           {
             day: '2026-04-04',
@@ -400,6 +401,7 @@ describe('cli actions', () => {
             average_hrv: 21,
             lowest_heart_rate: 61,
             total_sleep_duration: 28000,
+            deep_sleep_duration: 4200,
           },
         ],
       });
@@ -417,6 +419,7 @@ describe('cli actions', () => {
         averageHrv: 21,
         lowestHeartRate: 61,
         totalSleepDuration: 28000,
+        deepSleepDuration: 4200,
       },
     ]);
   });
@@ -435,6 +438,7 @@ describe('cli actions', () => {
             average_hrv: 20,
             lowest_heart_rate: 62,
             total_sleep_duration: 26000,
+            deep_sleep_duration: 3000,
           },
           {
             day: '2026-04-14',
@@ -442,6 +446,7 @@ describe('cli actions', () => {
             average_hrv: 21,
             lowest_heart_rate: 61,
             total_sleep_duration: 28000,
+            deep_sleep_duration: 4200,
           },
         ],
       });
@@ -459,6 +464,7 @@ describe('cli actions', () => {
         averageHrv: 21,
         lowestHeartRate: 61,
         totalSleepDuration: 28000,
+        deepSleepDuration: 4200,
       },
     ]);
   });
@@ -495,6 +501,7 @@ describe('cli actions', () => {
             average_hrv: 20,
             lowest_heart_rate: 62,
             total_sleep_duration: 26000,
+            deep_sleep_duration: 3000,
           },
           {
             day: '2026-04-14',
@@ -502,6 +509,7 @@ describe('cli actions', () => {
             average_hrv: 21,
             lowest_heart_rate: 61,
             total_sleep_duration: 28000,
+            deep_sleep_duration: 4200,
           },
         ],
       })
@@ -555,7 +563,7 @@ describe('cli actions', () => {
       [
         'Your Oura overview for Apr 13 - Apr 19.',
         '',
-        'Mon: Sleep 81 | Readiness 84 | Total 7h 47m | ⚠️ Temp +0.2C | Lowest HR 61 bpm | HRV 21 ms | Steps 9.2k | Stress stressful',
+        'Mon: Sleep 81 | Readiness 84 | Total 7h 47m | Deep 1h 10m | ⚠️ Temp +0.2C | Lowest HR 61 bpm | HRV 21 ms | Steps 9.2k | Stress stressful',
         'Tue: data not ready',
         'Wed: data not ready',
         'Thu: data not ready',

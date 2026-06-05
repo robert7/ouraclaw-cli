@@ -14,6 +14,9 @@ The routine evaluates six morning decision metrics:
 - `lowestHeartRate`
 - `totalSleepDuration`
 
+The morning payload can also include `deepSleepDuration` for concise display beside total sleep. It is not a decision
+metric and does not contribute to `shouldAlert`, `alertMetrics`, or `metricSignals`.
+
 The first three metrics can need attention through two paths:
 
 - fixed threshold alert

@@ -192,6 +192,7 @@ export interface OuraRecord {
   averageHrv?: number | null;
   lowestHeartRate?: number | null;
   totalSleepDuration?: number | null;
+  deepSleepDuration?: number | null;
 }
 
 export interface OAuthStartInput {
@@ -250,6 +251,7 @@ export interface MorningToday {
   averageHrv?: number | null;
   lowestHeartRate?: number | null;
   totalSleepDuration?: number | null;
+  deepSleepDuration?: number | null;
 }
 
 export interface MorningInput {
@@ -287,8 +289,10 @@ export interface SummaryResult {
   payload: Record<string, unknown>;
 }
 
+export type WeekOverviewMetricKey = BaselineMetricKey | 'deepSleepDuration';
+
 export interface WeekOverviewMetric {
-  key: BaselineMetricKey;
+  key: WeekOverviewMetricKey;
   value: number;
   unit: 'score' | 'celsius' | 'milliseconds' | 'bpm' | 'seconds';
   displayValue: string;
@@ -315,7 +319,7 @@ export interface WeekOverviewDay {
   shouldAlert: boolean;
   summaryLine: string;
   attentionMetrics: BaselineMetricKey[];
-  missingMetrics: BaselineMetricKey[];
+  missingMetrics: WeekOverviewMetricKey[];
   metrics: WeekOverviewMetric[];
   activity: WeekOverviewActivity;
   stress: WeekOverviewStress;
@@ -339,7 +343,7 @@ export interface WeekOverviewResult {
     timezone: string;
   };
   baselineStatus: 'ready' | 'missing' | 'stale' | 'refresh_failed';
-  metricOrder: BaselineMetricKey[];
+  metricOrder: WeekOverviewMetricKey[];
   overview: {
     readyDays: number;
     attentionDays: number;

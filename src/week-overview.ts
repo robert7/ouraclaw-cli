@@ -14,28 +14,31 @@ import {
   WeekOverviewActivity,
   WeekOverviewDay,
   WeekOverviewMetric,
+  WeekOverviewMetricKey,
   WeekOverviewResult,
   WeekOverviewStress,
   WeekOverviewStressSummaryCount,
   WeekOverviewTopAttentionMetric,
 } from './types';
 
-const metricOrder: BaselineMetricKey[] = [
+const metricOrder: WeekOverviewMetricKey[] = [
   'sleepScore',
   'readinessScore',
   'totalSleepDuration',
+  'deepSleepDuration',
   'temperatureDeviation',
   'lowestHeartRate',
   'averageHrv',
 ];
 
-const metricUnits: Record<BaselineMetricKey, WeekOverviewMetric['unit']> = {
+const metricUnits: Record<WeekOverviewMetricKey, WeekOverviewMetric['unit']> = {
   sleepScore: 'score',
   readinessScore: 'score',
   temperatureDeviation: 'celsius',
   averageHrv: 'milliseconds',
   lowestHeartRate: 'bpm',
   totalSleepDuration: 'seconds',
+  deepSleepDuration: 'seconds',
 };
 
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -55,7 +58,7 @@ function formatTemperature(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(1)}C`;
 }
 
-function formatMetricValue(metric: BaselineMetricKey, value: number): string {
+function formatMetricValue(metric: WeekOverviewMetricKey, value: number): string {
   switch (metric) {
     case 'sleepScore':
     case 'readinessScore':
@@ -67,6 +70,7 @@ function formatMetricValue(metric: BaselineMetricKey, value: number): string {
     case 'lowestHeartRate':
       return `${value} bpm`;
     case 'totalSleepDuration':
+    case 'deepSleepDuration':
       return formatDuration(value);
   }
 }
@@ -84,19 +88,33 @@ function toWeekMetric(signal: MetricSignal): WeekOverviewMetric | null {
   };
 }
 
+function toDeepSleepMetric(today: MorningToday): WeekOverviewMetric | null {
+  if (today.deepSleepDuration == null) {
+    return null;
+  }
+  return {
+    key: 'deepSleepDuration',
+    value: today.deepSleepDuration,
+    unit: metricUnits.deepSleepDuration,
+    displayValue: formatMetricValue('deepSleepDuration', today.deepSleepDuration),
+    attention: false,
+  };
+}
+
 function getWeekday(day: string): string {
   const [year, month, date] = day.split('-').map(Number);
   return weekdays[new Date(Date.UTC(year, month - 1, date)).getUTCDay()];
 }
 
 function buildSummaryLine(metrics: WeekOverviewMetric[]): string {
-  const labels: Record<BaselineMetricKey, string> = {
+  const labels: Record<WeekOverviewMetricKey, string> = {
     sleepScore: 'Sleep',
     readinessScore: 'Readiness',
     temperatureDeviation: 'Temp',
     averageHrv: 'HRV',
     lowestHeartRate: 'Lowest HR',
     totalSleepDuration: 'Total',
+    deepSleepDuration: 'Deep',
   };
 
   return metricOrder
@@ -248,6 +266,7 @@ export function buildWeekOverview(input: {
       averageHrv: record?.averageHrv ?? null,
       lowestHeartRate: record?.lowestHeartRate ?? null,
       totalSleepDuration: record?.totalSleepDuration ?? null,
+      deepSleepDuration: record?.deepSleepDuration ?? null,
     };
   });
 
@@ -262,17 +281,24 @@ export function buildWeekOverview(input: {
     });
     const signals =
       result.metricSignals.length > 0 ? result.metricSignals : buildFallbackSignals(today);
-    const metrics = metricOrder
-      .map((metric) => signals.find((signal) => signal.metric === metric))
-      .flatMap((signal) => {
-        const metric = signal ? toWeekMetric(signal) : null;
-        return metric ? [metric] : [];
-      });
-    const attentionMetrics = metricOrder.filter((metric) =>
-      signals.some((signal) => signal.metric === metric && signal.attention)
+    const metrics = metricOrder.flatMap((metric) => {
+      if (metric === 'deepSleepDuration') {
+        const deepSleepMetric = toDeepSleepMetric(today);
+        return deepSleepMetric ? [deepSleepMetric] : [];
+      }
+      const signal = signals.find((entry) => entry.metric === metric);
+      const weekMetric = signal ? toWeekMetric(signal) : null;
+      return weekMetric ? [weekMetric] : [];
+    });
+    const attentionMetrics = metricOrder.filter(
+      (metric): metric is BaselineMetricKey =>
+        metric !== 'deepSleepDuration' &&
+        signals.some((signal) => signal.metric === metric && signal.attention)
     );
     const missingMetrics = metricOrder.filter((metric) =>
-      signals.some((signal) => signal.metric === metric && signal.value == null)
+      metric === 'deepSleepDuration'
+        ? today.deepSleepDuration == null
+        : signals.some((signal) => signal.metric === metric && signal.value == null)
     );
     const activity = normalizeActivity(activityByDay.get(today.day));
     const stress = normalizeStress(stressByDay.get(today.day));

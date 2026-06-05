@@ -829,6 +829,7 @@ function sleepPeriodToBaselineRecord(record: SleepPeriod): OuraRecord {
     averageHrv: record.average_hrv,
     lowestHeartRate: record.lowest_heart_rate,
     totalSleepDuration: record.total_sleep_duration,
+    deepSleepDuration: record.deep_sleep_duration,
   };
 }
 
@@ -852,7 +853,7 @@ function buildSleepPeriodMap(records: SleepPeriod[]): Map<string, OuraRecord> {
   );
 }
 
-function hasAnyMorningBaselineValue(record: OuraRecord): boolean {
+function hasAnyMorningRecordValue(record: OuraRecord): boolean {
   return [
     record.sleepScore,
     record.readinessScore,
@@ -860,6 +861,7 @@ function hasAnyMorningBaselineValue(record: OuraRecord): boolean {
     record.averageHrv,
     record.lowestHeartRate,
     record.totalSleepDuration,
+    record.deepSleepDuration,
   ].some((value) => typeof value === 'number' && Number.isFinite(value));
 }
 
@@ -900,9 +902,10 @@ export async function fetchMorningBaselineRecordsForRange(
         averageHrv: sleepRecord?.averageHrv ?? null,
         lowestHeartRate: sleepRecord?.lowestHeartRate ?? null,
         totalSleepDuration: sleepRecord?.totalSleepDuration ?? null,
+        deepSleepDuration: sleepRecord?.deepSleepDuration ?? null,
       };
     })
-    .filter(hasAnyMorningBaselineValue);
+    .filter(hasAnyMorningRecordValue);
 }
 
 export async function fetchWeekOverviewRecordsForRange(
@@ -967,6 +970,7 @@ async function buildMorningResult(
       averageHrv: summaryInputs.sleepRecord?.average_hrv ?? null,
       lowestHeartRate: summaryInputs.sleepRecord?.lowest_heart_rate ?? null,
       totalSleepDuration: summaryInputs.sleepRecord?.total_sleep_duration ?? null,
+      deepSleepDuration: summaryInputs.sleepRecord?.deep_sleep_duration ?? null,
     },
     thresholds: state.thresholds,
     baselineConfig: state.baselineConfig,

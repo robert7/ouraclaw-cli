@@ -109,6 +109,11 @@ optional `deliveryKey`, `deliveryMode`, `today`, optional `baseline`, `alertMetr
 `metricSignals`, and optional `message` for sendable results. Within `metricSignals`, `attention: true` is reserved
 for actionable metrics that actually contributed to `alertMetrics`.
 
+When available, `today.deepSleepDuration` is included as display context beside total sleep. It is not part of
+`metricSignals` and does not affect attention decisions.
+
+With `--text`, sendable morning output is line-oriented for readability.
+
 In `daily-when-ready` mode, a ready day without an alert can still return `shouldSend: true` with a calm morning
 summary message. The result shape stays the same on both calm and attention days; there is no separate morning
 delivery type branch.
@@ -121,9 +126,9 @@ plus the next six days. With only `--end-date`, the range is that date and the p
 inclusive range must be exactly seven days.
 
 For weekly recap rendering, each row is labeled by the completed calendar day being reviewed. The underlying sleep,
-readiness, temperature, HRV, heart-rate, and total-sleep bundle is shifted back one day from the morning-style Oura
-record ownership, so a Monday run can show the previous Monday through Sunday while still including Sunday-night to
-Monday-morning sleep on the Sunday row.
+readiness, temperature, HRV, heart-rate, total-sleep, and deep-sleep bundle is shifted back one day from the
+morning-style Oura record ownership, so a Monday run can show the previous Monday through Sunday while still including
+Sunday-night to Monday-morning sleep on the Sunday row.
 
 The result includes `period`, `baselineStatus`, `metricOrder`, `overview`, and `days`. Each day includes `weekday`,
 `dataReady`, `shouldAlert`, a concise English fallback `summaryLine`, `attentionMetrics`, `missingMetrics`, compact
@@ -131,6 +136,9 @@ The result includes `period`, `baselineStatus`, `metricOrder`, `overview`, and `
 completed-day `activity` and `stress` context. `summaryLine` omits missing values and prefixes only actionable
 attention metrics with `⚠️`. For non-English summaries, render from `metricOrder`, `metrics`, and `attentionMetrics`
 instead of translating `summaryLine`.
+
+Weekly `metrics` can include `deepSleepDuration` after `totalSleepDuration`; it is display-only and never marked as
+attention.
 
 `overview` also includes step and stress rollups for the seven-day window:
 
