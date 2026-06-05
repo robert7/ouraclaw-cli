@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-05
+
 ### Added
 
 - Added deep-sleep and REM-sleep duration to `summary morning`, `summary week-overview`, and `summary month-overview`,
@@ -12,7 +14,6 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Reduced Dependabot version-update checks to monthly runs on the 15th.
 - `setup` now respects the `BROWSER` environment variable before falling back to the platform-default browser opener.
 
 ### Fixed
