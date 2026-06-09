@@ -47,56 +47,89 @@ describe('sleep debt', () => {
     ]);
   });
 
-  test('builds a p75 sleep-need baseline from daily sleep totals', () => {
+  test('builds a trimmed typical sleep-need baseline from daily sleep totals', () => {
     const sleepNeed = buildDerivedSleepNeedBaseline([
-      { day: '2026-03-01', totalSleepDuration: 25_200 },
-      { day: '2026-03-02', totalSleepDuration: 26_100 },
-      { day: '2026-03-03', totalSleepDuration: 27_000 },
-      { day: '2026-03-04', totalSleepDuration: 28_800 },
-      { day: '2026-03-05', totalSleepDuration: 30_600 },
+      { day: '2026-03-01', totalSleepDuration: 14_400 },
+      { day: '2026-03-02', totalSleepDuration: 24_600 },
+      { day: '2026-03-03', totalSleepDuration: 24_600 },
+      { day: '2026-03-04', totalSleepDuration: 24_600 },
+      { day: '2026-03-05', totalSleepDuration: 24_600 },
+      { day: '2026-03-06', totalSleepDuration: 24_600 },
+      { day: '2026-03-07', totalSleepDuration: 24_600 },
+      { day: '2026-03-08', totalSleepDuration: 24_600 },
+      { day: '2026-03-09', totalSleepDuration: 24_600 },
+      { day: '2026-03-10', totalSleepDuration: 24_600 },
+      { day: '2026-03-11', totalSleepDuration: 24_600 },
+      { day: '2026-03-12', totalSleepDuration: 24_600 },
+      { day: '2026-03-13', totalSleepDuration: 24_600 },
+      { day: '2026-03-14', totalSleepDuration: 36_000 },
     ]);
 
-    expect(sleepNeed).toEqual({
+    expect(sleepNeed).toMatchObject({
       status: 'ready',
-      seconds: 28_800,
-      displayValue: '8h 0m',
-      method: 'sleep_total_p75',
+      seconds: 24_600,
+      displayValue: '6h 50m',
+      method: 'sleep_total_trimmed_mean_90d',
       source: 'sleep_total_all_sessions',
-      sampleSize: 5,
-      minSampleSize: 5,
+      historyDays: 90,
+      sampleSize: 14,
+      trimmedSampleSize: 12,
+      minSampleSize: 14,
+      lowerTrimPercentile: 0.1,
+      upperTrimPercentile: 0.9,
     });
   });
 
-  test('estimates two-week sleep debt from the derived sleep need', () => {
+  test('estimates two-week sleep debt as a decayed signed balance', () => {
     const sleepNeed = buildDerivedSleepNeedBaseline([
-      { day: '2026-03-01', totalSleepDuration: 28_800 },
-      { day: '2026-03-02', totalSleepDuration: 28_800 },
-      { day: '2026-03-03', totalSleepDuration: 28_800 },
-      { day: '2026-03-04', totalSleepDuration: 28_800 },
-      { day: '2026-03-05', totalSleepDuration: 28_800 },
+      { day: '2026-03-01', totalSleepDuration: 24_600 },
+      { day: '2026-03-02', totalSleepDuration: 24_600 },
+      { day: '2026-03-03', totalSleepDuration: 24_600 },
+      { day: '2026-03-04', totalSleepDuration: 24_600 },
+      { day: '2026-03-05', totalSleepDuration: 24_600 },
+      { day: '2026-03-06', totalSleepDuration: 24_600 },
+      { day: '2026-03-07', totalSleepDuration: 24_600 },
+      { day: '2026-03-08', totalSleepDuration: 24_600 },
+      { day: '2026-03-09', totalSleepDuration: 24_600 },
+      { day: '2026-03-10', totalSleepDuration: 24_600 },
+      { day: '2026-03-11', totalSleepDuration: 24_600 },
+      { day: '2026-03-12', totalSleepDuration: 24_600 },
+      { day: '2026-03-13', totalSleepDuration: 24_600 },
+      { day: '2026-03-14', totalSleepDuration: 24_600 },
     ]);
 
     const debt = buildEstimatedSleepDebt({
       sleepNeed,
-      startDay: '2026-03-01',
-      endDay: '2026-03-14',
+      startDay: '2026-05-27',
+      endDay: '2026-06-09',
       dayTotals: [
-        { day: '2026-03-10', totalSleepDuration: 27_000 },
-        { day: '2026-03-11', totalSleepDuration: 21_600 },
-        { day: '2026-03-12', totalSleepDuration: 28_800 },
-        { day: '2026-03-13', totalSleepDuration: 30_000 },
-        { day: '2026-03-14', totalSleepDuration: 28_200 },
+        { day: '2026-05-27', totalSleepDuration: 12_720 },
+        { day: '2026-05-28', totalSleepDuration: 24_600 },
+        { day: '2026-05-29', totalSleepDuration: 24_600 },
+        { day: '2026-05-30', totalSleepDuration: 24_600 },
+        { day: '2026-05-31', totalSleepDuration: 24_600 },
+        { day: '2026-06-01', totalSleepDuration: 24_600 },
+        { day: '2026-06-02', totalSleepDuration: 24_600 },
+        { day: '2026-06-03', totalSleepDuration: 24_600 },
+        { day: '2026-06-04', totalSleepDuration: 24_360 },
+        { day: '2026-06-05', totalSleepDuration: 23_520 },
+        { day: '2026-06-06', totalSleepDuration: 21_180 },
+        { day: '2026-06-07', totalSleepDuration: 14_700 },
+        { day: '2026-06-08', totalSleepDuration: 32_760 },
+        { day: '2026-06-09', totalSleepDuration: 30_120 },
       ],
     });
 
     expect(debt).toMatchObject({
-      status: 'moderate',
-      valueSeconds: 9_600,
-      displayValue: '2h 40m',
-      sleepNeedSeconds: 28_800,
-      sleepNeedDisplayValue: '8h 0m',
+      status: 'low',
+      valueSeconds: 4_200,
+      displayValue: '1h 10m',
+      sleepNeedSeconds: 24_600,
+      sleepNeedDisplayValue: '6h 50m',
       source: 'derived_from_sleep_history',
-      sampleSize: 5,
+      method: 'decayed_signed_balance',
+      decayFactor: 0.935,
+      sampleSize: 14,
     });
   });
 
@@ -106,10 +139,16 @@ describe('sleep debt', () => {
         status: 'ready',
         seconds: 28_800,
         displayValue: '8h 0m',
-        method: 'sleep_total_p75',
+        method: 'sleep_total_trimmed_mean_90d',
         source: 'sleep_total_all_sessions',
-        sampleSize: 5,
-        minSampleSize: 5,
+        historyDays: 90,
+        sampleSize: 14,
+        trimmedSampleSize: 14,
+        minSampleSize: 14,
+        lowerTrimPercentile: 0.1,
+        upperTrimPercentile: 0.9,
+        sourceStartDay: '2025-12-15',
+        sourceEndDay: '2026-03-14',
       },
       startDay: '2026-03-01',
       endDay: '2026-03-14',

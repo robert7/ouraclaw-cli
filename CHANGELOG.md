@@ -9,6 +9,11 @@ All notable changes to this project will be documented in this file.
 - Added estimated sleep debt context to `summary morning`, derived from the stored sleep-need baseline and recent sleep
   history without changing morning alert decisions.
 
+### Changed
+
+- Improved estimated sleep debt to use a 90-day trimmed sleep-need estimate and a 14-day decayed balance where longer
+  sleep can pay debt down.
+
 ### Fixed
 
 - Fixed `summary morning --text` so it prints a human preview/status even when the JSON result is not sendable.

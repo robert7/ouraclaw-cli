@@ -37,8 +37,9 @@ The baseline snapshot stores metadata about its source window plus per-metric bo
 - `deep_sleep_duration`
 - `rem_sleep_duration`
 
-The same snapshot also stores `derived.sleepNeed` for estimated sleep debt. This value is derived from all sleep
-sessions in the baseline window and is not used as a baseline attention metric.
+The same snapshot also stores `derived.sleepNeed` for estimated sleep debt. This value is the CLI's own estimate
+because the public Oura API does not expose Sleep Need. It uses 90 days of all-session sleep totals, trims the lowest
+and highest 10%, averages the remaining days, and rounds to 10 minutes. It is not used as a baseline attention metric.
 
 Automatic baseline refresh is attempted by `summary morning` and `summary week-overview` when the stored baseline is
 missing, stale, or incomplete for the current metric set.

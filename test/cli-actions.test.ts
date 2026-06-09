@@ -82,6 +82,10 @@ vi.mock('../src/baseline', () => ({
     endDay: '2026-03-08',
     weeks: ['2026-W08'],
   })),
+  getDerivedSleepNeedWindow: vi.fn(() => ({
+    startDay: '2025-12-09',
+    endDay: '2026-03-08',
+  })),
   getManualBaselineWindow: vi.fn(() => ({ startDay: '2026-02-20', endDay: '2026-03-12' })),
   isBaselineComplete,
   isBaselineStale,

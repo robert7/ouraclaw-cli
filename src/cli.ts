@@ -16,6 +16,7 @@ import { CALLBACK_PORT, DEFAULT_SCHEDULE_CONFIG, OURA_ENDPOINTS } from './config
 import {
   defaultBaselineConfig,
   getAutomaticBaselineWindow,
+  getDerivedSleepNeedWindow,
   getManualBaselineWindow,
   isBaselineComplete,
   isBaselineStale,
@@ -898,19 +899,27 @@ function hasAnyMorningRecordValue(record: OuraRecord): boolean {
 async function fetchMorningBaselineInputsForRange(
   accessToken: string,
   startDay: string,
-  endDay: string
+  endDay: string,
+  includeSleepNeedWindow = true
 ): Promise<MorningBaselineInputs> {
   const sleepStartDay = getTodayIsoDate(addDays(parseIsoDate(startDay), -1));
+  const sleepNeedWindow = getDerivedSleepNeedWindow(endDay);
+  const sleepFetchStartDay =
+    includeSleepNeedWindow && compareIsoDates(sleepNeedWindow.startDay, sleepStartDay) < 0
+      ? sleepNeedWindow.startDay
+      : sleepStartDay;
   const [dailySleepResponse, dailyReadinessResponse, sleepResponse] = await Promise.all([
     fetchOuraData<DailySleep>(accessToken, 'daily_sleep', startDay, endDay),
     fetchOuraData<DailyReadiness>(accessToken, 'daily_readiness', startDay, endDay),
-    fetchOuraData<SleepPeriod>(accessToken, 'sleep', sleepStartDay, endDay),
+    fetchOuraData<SleepPeriod>(accessToken, 'sleep', sleepFetchStartDay, endDay),
   ]);
 
   const dailySleepByDay = buildDailyMap(dailySleepResponse.data);
   const dailyReadinessByDay = buildDailyMap(dailyReadinessResponse.data);
   const sleepByDay = buildSleepPeriodMap(sleepResponse.data);
-  const sleepDayTotals = buildSleepDayTotals(sleepResponse.data, startDay, endDay);
+  const sleepDayTotals = includeSleepNeedWindow
+    ? buildSleepDayTotals(sleepResponse.data, sleepNeedWindow.startDay, sleepNeedWindow.endDay)
+    : buildSleepDayTotals(sleepResponse.data, startDay, endDay);
   const days = new Set<string>([
     ...dailySleepByDay.keys(),
     ...dailyReadinessByDay.keys(),
@@ -947,7 +956,7 @@ export async function fetchMorningBaselineRecordsForRange(
   startDay: string,
   endDay: string
 ): Promise<OuraRecord[]> {
-  const inputs = await fetchMorningBaselineInputsForRange(accessToken, startDay, endDay);
+  const inputs = await fetchMorningBaselineInputsForRange(accessToken, startDay, endDay, false);
   return inputs.records;
 }
 

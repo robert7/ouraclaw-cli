@@ -57,9 +57,10 @@ Examples:
 A same-day metric value outside `low` and `high` becomes a `metricSignals` entry. Whether that signal is better or
 worse depends on the metric direction.
 
-The baseline snapshot also carries `derived.sleepNeed` for estimated sleep debt. This value uses the 75th percentile of
-daily total sleep across all sleep sessions in the baseline window. It is stored with the baseline so it refreshes on
-the same lifecycle, but it is not part of `metricSignals`.
+The baseline snapshot also carries `derived.sleepNeed` for estimated sleep debt. Oura does not expose Sleep Need
+through the public API, so this is the CLI's own estimate. It sums all sleep sessions per day over a 90-day window,
+trims the lowest and highest 10% of daily totals, averages the remaining days, and rounds the result to 10 minutes. It
+is stored with the baseline so it refreshes on the same lifecycle, but it is not part of `metricSignals`.
 
 ## Attention Logic
 
@@ -90,11 +91,16 @@ Fixed-threshold alerts still set `shouldAlert: true` immediately.
 ## Estimated Sleep Debt
 
 `summary morning` includes `today.estimatedSleepDebt` when it can compare the last 14 days of all-session sleep totals
-against the derived sleep-need baseline. The status follows the same public app categories: `none`, `low`, `moderate`,
-`high`, or `not_enough_data`.
+against the derived sleep-need baseline. Oura does not expose Sleep Debt through the public API, so the CLI approximates
+the app behavior with a decayed signed balance:
 
-This is an estimate because the public Oura API does not expose the app's private Sleep Debt or Sleep Need values. It
-is shown as recap context in the morning text when available, but it never changes `shouldAlert`, `alertMetrics`, or
+1. Each day starts from the previous estimated debt multiplied by `0.935`.
+2. If total sleep is below estimated sleep need, the shortfall adds debt.
+3. If total sleep is above estimated sleep need, the surplus pays debt down.
+4. The final value is never allowed below zero and is rounded to 10 minutes.
+
+The status follows the same public app categories: `none`, `low`, `moderate`, `high`, or `not_enough_data`. It is shown
+as recap context in the morning text when available, but it never changes `shouldAlert`, `alertMetrics`, or
 `metricSignals`.
 
 ## `dataReady`

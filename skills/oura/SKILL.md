@@ -192,7 +192,7 @@ Format rules:
   total sleep duration, deep sleep duration, and REM sleep duration.
 - Show deep sleep and REM sleep as concise context next to total sleep.
 - If `today.estimatedSleepDebt.status` is not `not_enough_data`, include it as estimated sleep debt. Label it as an
-  estimate and do not mark it as an attention metric.
+  estimate, do not present it as an official Oura API value, and do not mark it as an attention metric.
 - Mark metrics where `metricSignals[].attention` is `true`. Use `⚠️` on WhatsApp, Telegram, Discord, Slack, and
   WebChat/default. Use `ATTENTION` on plain-text channels.
 - Treat `severity: "better"` signals as positive or neutral context, not warnings.

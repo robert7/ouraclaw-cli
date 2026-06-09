@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   defaultBaselineConfig,
   getAutomaticBaselineWindow,
+  getDerivedSleepNeedWindow,
   getManualBaselineWindow,
   isBaselineComplete,
   isBaselineStale,
@@ -27,6 +28,15 @@ describe('baseline', () => {
     expect(window).toEqual({
       startDay: '2026-02-20',
       endDay: '2026-03-12',
+    });
+  });
+
+  test('computes derived sleep-need window from the baseline end day', () => {
+    const window = getDerivedSleepNeedWindow('2026-03-08');
+
+    expect(window).toEqual({
+      startDay: '2025-12-09',
+      endDay: '2026-03-08',
     });
   });
 
@@ -69,11 +79,20 @@ describe('baseline', () => {
       ],
       defaultBaselineConfig(),
       [
-        { day: '2026-03-01', totalSleepDuration: 25_200 },
-        { day: '2026-03-02', totalSleepDuration: 26_100 },
-        { day: '2026-03-03', totalSleepDuration: 27_000 },
-        { day: '2026-03-04', totalSleepDuration: 28_800 },
-        { day: '2026-03-05', totalSleepDuration: 30_600 },
+        { day: '2026-02-20', totalSleepDuration: 24_600 },
+        { day: '2026-02-21', totalSleepDuration: 24_600 },
+        { day: '2026-02-22', totalSleepDuration: 24_600 },
+        { day: '2026-02-23', totalSleepDuration: 24_600 },
+        { day: '2026-02-24', totalSleepDuration: 24_600 },
+        { day: '2026-02-25', totalSleepDuration: 24_600 },
+        { day: '2026-02-26', totalSleepDuration: 24_600 },
+        { day: '2026-02-27', totalSleepDuration: 24_600 },
+        { day: '2026-02-28', totalSleepDuration: 24_600 },
+        { day: '2026-03-01', totalSleepDuration: 24_600 },
+        { day: '2026-03-02', totalSleepDuration: 24_600 },
+        { day: '2026-03-03', totalSleepDuration: 24_600 },
+        { day: '2026-03-04', totalSleepDuration: 24_600 },
+        { day: '2026-03-05', totalSleepDuration: 24_600 },
       ]
     );
 
@@ -85,8 +104,10 @@ describe('baseline', () => {
     expect(baseline.metrics.remSleepDuration?.low).toBe(4225);
     expect(baseline.derived?.sleepNeed).toMatchObject({
       status: 'ready',
-      seconds: 28_800,
+      seconds: 24_600,
+      method: 'sleep_total_trimmed_mean_90d',
       source: 'sleep_total_all_sessions',
+      historyDays: 90,
     });
   });
 
@@ -119,6 +140,28 @@ describe('baseline', () => {
       isBaselineComplete({
         ...complete,
         derived: undefined,
+      })
+    ).toBe(false);
+    expect(
+      isBaselineComplete({
+        ...complete,
+        derived: {
+          sleepNeed: {
+            status: 'ready',
+            seconds: 24_600,
+            displayValue: '6h 50m',
+            method: 'sleep_total_p75' as never,
+            source: 'sleep_total_all_sessions',
+            historyDays: 90,
+            sampleSize: 14,
+            trimmedSampleSize: 14,
+            minSampleSize: 14,
+            lowerTrimPercentile: 0.1,
+            upperTrimPercentile: 0.9,
+            sourceStartDay: '2025-12-09',
+            sourceEndDay: '2026-03-08',
+          },
+        },
       })
     ).toBe(false);
   });

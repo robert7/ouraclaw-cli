@@ -56,9 +56,11 @@ For each metric the snapshot stores a median plus ordinary low/high bounds. The 
 lower percentile and its mirrored upper percentile. With the default `25`, the ordinary band is the 25th to 75th
 percentile. A same-day value outside that band becomes a direction-aware metric signal.
 
-The snapshot also stores a derived sleep-need reference used only for estimated sleep debt. This is calculated from the
-75th percentile of daily total sleep across all sleep sessions in the baseline window. It is deliberately separate from
-`metrics` because estimated sleep debt is recap context, not an attention signal.
+The snapshot also stores a derived sleep-need reference used only for estimated sleep debt. Oura does not expose Sleep
+Need or Sleep Debt through the public API, so this value is the CLI's own estimate: daily total sleep is summed across
+all sleep sessions over a 90-day window, the lowest and highest 10% are trimmed, and the remaining mean is rounded to
+10 minutes. It is deliberately separate from `metrics` because estimated sleep debt is recap context, not an attention
+signal.
 
 The morning summary routine combines fixed thresholds and baseline attention signals. Fixed-threshold failures alert
 immediately. For baseline signals, `sleepScore`, `readinessScore`, `totalSleepDuration`, `deepSleepDuration`, and

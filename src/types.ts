@@ -142,10 +142,16 @@ export interface DerivedSleepNeedBaseline {
   status: 'ready' | 'not_enough_data';
   seconds: number | null;
   displayValue: string | null;
-  method: 'sleep_total_p75';
+  method: 'sleep_total_trimmed_mean_90d';
   source: 'sleep_total_all_sessions';
+  historyDays: number;
   sampleSize: number;
+  trimmedSampleSize: number;
   minSampleSize: number;
+  lowerTrimPercentile: number;
+  upperTrimPercentile: number;
+  sourceStartDay: string | null;
+  sourceEndDay: string | null;
 }
 
 export interface BaselineDerivedValues {
@@ -246,6 +252,8 @@ export interface EstimatedSleepDebt {
   sleepNeedSeconds: number | null;
   sleepNeedDisplayValue: string | null;
   source: 'derived_from_sleep_history';
+  method: 'decayed_signed_balance';
+  decayFactor: number;
   windowDays: number;
   startDay: string;
   endDay: string;

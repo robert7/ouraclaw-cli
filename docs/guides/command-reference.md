@@ -113,7 +113,8 @@ for actionable metrics that actually contributed to `alertMetrics`.
 When available, `today.deepSleepDuration` and `today.remSleepDuration` are included beside total sleep. Both are
 baseline decision metrics and can contribute to `alertMetrics`. `today.estimatedSleepDebt` is also included when the
 CLI can derive it from the stored sleep-need baseline and the last 14 days of sleep history. It is labeled as
-`derived_from_sleep_history` and does not contribute to `alertMetrics`.
+`derived_from_sleep_history` and does not contribute to `alertMetrics`. The value is a CLI estimate because Oura does
+not expose Sleep Need or Sleep Debt through the public API.
 
 With `--text`, the CLI prints a line-oriented human preview or not-ready status. JSON remains the automation contract
 for delivery decisions; agents should still use `shouldSend` before sending anything.
