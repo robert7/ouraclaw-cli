@@ -1,5 +1,10 @@
 import { BASELINE_METRICS, DEFAULT_BASELINE_CONFIG } from './config';
 import { addDays, getIsoWeekString, getWeekStartMonday, toIsoDate } from './date-utils';
+import {
+  buildDerivedSleepNeedBaseline,
+  DERIVED_SLEEP_NEED_HISTORY_DAYS,
+  SleepDayTotal,
+} from './sleep-debt';
 import { buildMetricSnapshot } from './statistics';
 import {
   BaselineConfig,
@@ -70,6 +75,15 @@ export function getAutomaticBaselineWindow(referenceDate: Date) {
   };
 }
 
+export function getDerivedSleepNeedWindow(endDay: string) {
+  const end = new Date(`${endDay}T00:00:00.000Z`);
+  const start = addDays(end, -(DERIVED_SLEEP_NEED_HISTORY_DAYS - 1));
+  return {
+    startDay: toIsoDate(start),
+    endDay,
+  };
+}
+
 export function getManualBaselineWindow(referenceDate: Date) {
   const today = new Date(
     Date.UTC(
@@ -89,7 +103,8 @@ export function getManualBaselineWindow(referenceDate: Date) {
 export function rebuildAutomaticBaseline(
   referenceDate: Date,
   records: OuraRecord[],
-  baselineConfig: BaselineConfig = defaultBaselineConfig()
+  baselineConfig: BaselineConfig = defaultBaselineConfig(),
+  sleepDayTotals: SleepDayTotal[] = []
 ): BaselineSnapshot {
   const window = getAutomaticBaselineWindow(referenceDate);
   return {
@@ -99,13 +114,21 @@ export function rebuildAutomaticBaseline(
     sourceEndDay: window.endDay,
     weeks: window.weeks,
     metrics: buildMetrics(records, baselineConfig),
+    derived: {
+      sleepNeed: buildDerivedSleepNeedBaseline(
+        sleepDayTotals,
+        getDerivedSleepNeedWindow(window.endDay).startDay,
+        window.endDay
+      ),
+    },
   };
 }
 
 export function rebuildManualBaseline(
   referenceDate: Date,
   records: OuraRecord[],
-  baselineConfig: BaselineConfig = defaultBaselineConfig()
+  baselineConfig: BaselineConfig = defaultBaselineConfig(),
+  sleepDayTotals: SleepDayTotal[] = []
 ): BaselineSnapshot {
   const window = getManualBaselineWindow(referenceDate);
   return {
@@ -114,6 +137,13 @@ export function rebuildManualBaseline(
     sourceStartDay: window.startDay,
     sourceEndDay: window.endDay,
     metrics: buildMetrics(records, baselineConfig),
+    derived: {
+      sleepNeed: buildDerivedSleepNeedBaseline(
+        sleepDayTotals,
+        getDerivedSleepNeedWindow(window.endDay).startDay,
+        window.endDay
+      ),
+    },
   };
 }
 
@@ -122,5 +152,8 @@ export function isBaselineStale(snapshot: BaselineSnapshot, now: Date): boolean 
 }
 
 export function isBaselineComplete(snapshot: BaselineSnapshot): boolean {
-  return BASELINE_METRICS.every((metric) => Boolean(snapshot.metrics[metric]));
+  return (
+    BASELINE_METRICS.every((metric) => Boolean(snapshot.metrics[metric])) &&
+    snapshot.derived?.sleepNeed?.method === 'sleep_total_trimmed_mean_90d'
+  );
 }

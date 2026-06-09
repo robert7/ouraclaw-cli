@@ -74,7 +74,22 @@ function humanizeReason(reason: string): string {
   return reason.replaceAll('_', ' ');
 }
 
-function buildMorningMessage(result: MorningResult): string {
+function formatEstimatedSleepDebt(result: MorningResult): string | undefined {
+  const estimate = result.today.estimatedSleepDebt;
+  if (!estimate || estimate.status === 'not_enough_data') {
+    return undefined;
+  }
+
+  return `Debt est. ${estimate.displayValue ?? 'n/a'} (${estimate.status})`;
+}
+
+export function buildMorningText(result: MorningResult): string {
+  if (!result.dataReady) {
+    const reasons =
+      result.skipReasons.length > 0 ? `: ${result.skipReasons.map(humanizeReason).join(', ')}` : '';
+    return `Morning Oura data is not ready yet${reasons}.`;
+  }
+
   const intro = result.shouldAlert
     ? `Good morning. Today's Oura summary for ${result.today.day} shows a few attention signals.`
     : `Good morning. Today's Oura summary for ${result.today.day} is ready. Nothing urgent stands out.`;
@@ -104,6 +119,10 @@ function buildMorningMessage(result: MorningResult): string {
         `REM ${formatDuration(result.today.remSleepDuration)}`
       )
     );
+  }
+  const estimatedSleepDebt = formatEstimatedSleepDebt(result);
+  if (estimatedSleepDebt) {
+    sleepLineParts.push(estimatedSleepDebt);
   }
 
   const lines = [
@@ -320,7 +339,7 @@ export function evaluateMorning(input: MorningInput): MorningResult {
 
   if (shouldSendCandidate) {
     result.deliveryKey = buildDeliveryKey(result);
-    result.message = buildMorningMessage(result);
+    result.message = buildMorningText(result);
   }
 
   if (

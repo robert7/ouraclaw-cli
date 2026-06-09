@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import { defaultBaselineConfig } from '../src/baseline';
-import { evaluateMorning } from '../src/morning';
+import { buildMorningText, evaluateMorning } from '../src/morning';
 import { BaselineSnapshot, MorningToday } from '../src/types';
 import { defaultThresholds } from '../src/thresholds';
 
@@ -53,6 +53,9 @@ describe('morning', () => {
     expect(result.shouldSend).toBe(false);
     expect(result.skipReasons).toContain('missing_sleep_score');
     expect(result.alertReasons).toEqual([]);
+    expect(buildMorningText(result)).toBe(
+      'Morning Oura data is not ready yet: missing sleep score.'
+    );
   });
 
   test('alerts when fixed thresholds fail', () => {
@@ -299,6 +302,37 @@ describe('morning', () => {
     expect(result.message).toContain('Deep 1h 5m');
     expect(result.message).toContain('REM 1h 20m');
     expect(result.message).toContain('REM 1h 20m\nReadiness 80');
+    expect(result.alertMetrics).toEqual([]);
+    expect(result.metricSignals).toHaveLength(8);
+  });
+
+  test('adds available estimated sleep debt to sendable morning messages', () => {
+    const result = evaluateMorning({
+      today: {
+        ...readyToday,
+        estimatedSleepDebt: {
+          status: 'moderate',
+          valueSeconds: 9_600,
+          displayValue: '2h 40m',
+          sleepNeedSeconds: 28_800,
+          sleepNeedDisplayValue: '8h 0m',
+          source: 'derived_from_sleep_history',
+          windowDays: 14,
+          startDay: '2026-02-28',
+          endDay: '2026-03-13',
+          sampleSize: 14,
+          minSampleSize: 5,
+        },
+      },
+      thresholds: defaultThresholds(),
+      baselineConfig: defaultBaselineConfig(),
+      deliveryMode: 'daily-when-ready',
+      baselineStatus: 'ready',
+      baseline,
+    });
+
+    expect(result.today.estimatedSleepDebt?.source).toBe('derived_from_sleep_history');
+    expect(result.message).toContain('Debt est. 2h 40m (moderate)');
     expect(result.alertMetrics).toEqual([]);
     expect(result.metricSignals).toHaveLength(8);
   });
