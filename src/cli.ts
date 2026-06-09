@@ -24,7 +24,7 @@ import {
   validateBaselineConfig,
 } from './baseline';
 import { addDays, compareIsoDates, getTodayIsoDate, parseIsoDate } from './date-utils';
-import { evaluateMorning } from './morning';
+import { buildMorningText, evaluateMorning } from './morning';
 import {
   buildMonthOverview,
   buildMonthOverviewText,
@@ -47,6 +47,12 @@ import {
   removeLegacyOuraClawJobs,
   removeManagedScheduleJobs,
 } from './schedule';
+import {
+  buildEstimatedSleepDebt,
+  buildSleepDayTotals,
+  SleepDayTotal,
+  SLEEP_DEBT_WINDOW_DAYS,
+} from './sleep-debt';
 import { readState, updateState, writeState } from './state-store';
 import { buildEveningSummary, selectPreferredSleepRecord } from './summaries';
 import { defaultThresholds, validateThresholds } from './thresholds';
@@ -76,6 +82,11 @@ interface MaskableReadline extends readline.Interface {
   output: NodeJS.WriteStream;
   _writeToOutput?: (text: string) => void;
   stdoutMuted?: boolean;
+}
+
+interface MorningBaselineInputs {
+  records: OuraRecord[];
+  sleepDayTotals: SleepDayTotal[];
 }
 
 interface OuraCredentials {
@@ -829,6 +840,17 @@ export async function fetchTodaySummaryInputs(accessToken: string, day: string) 
   };
 }
 
+async function fetchSleepDebtDayTotals(accessToken: string, day: string) {
+  const startDay = getTodayIsoDate(addDays(parseIsoDate(day), -(SLEEP_DEBT_WINDOW_DAYS - 1)));
+  const sleepResponse = await fetchOuraData<SleepPeriod>(accessToken, 'sleep', startDay, day);
+
+  return {
+    startDay,
+    endDay: day,
+    dayTotals: buildSleepDayTotals(sleepResponse.data, startDay, day),
+  };
+}
+
 function sleepPeriodToBaselineRecord(record: SleepPeriod): OuraRecord {
   return {
     day: record.day,
@@ -873,11 +895,11 @@ function hasAnyMorningRecordValue(record: OuraRecord): boolean {
   ].some((value) => typeof value === 'number' && Number.isFinite(value));
 }
 
-export async function fetchMorningBaselineRecordsForRange(
+async function fetchMorningBaselineInputsForRange(
   accessToken: string,
   startDay: string,
   endDay: string
-): Promise<OuraRecord[]> {
+): Promise<MorningBaselineInputs> {
   const sleepStartDay = getTodayIsoDate(addDays(parseIsoDate(startDay), -1));
   const [dailySleepResponse, dailyReadinessResponse, sleepResponse] = await Promise.all([
     fetchOuraData<DailySleep>(accessToken, 'daily_sleep', startDay, endDay),
@@ -888,13 +910,14 @@ export async function fetchMorningBaselineRecordsForRange(
   const dailySleepByDay = buildDailyMap(dailySleepResponse.data);
   const dailyReadinessByDay = buildDailyMap(dailyReadinessResponse.data);
   const sleepByDay = buildSleepPeriodMap(sleepResponse.data);
+  const sleepDayTotals = buildSleepDayTotals(sleepResponse.data, startDay, endDay);
   const days = new Set<string>([
     ...dailySleepByDay.keys(),
     ...dailyReadinessByDay.keys(),
     ...sleepByDay.keys(),
   ]);
 
-  return [...days]
+  const records = [...days]
     .sort()
     .filter((day) => compareIsoDates(day, startDay) >= 0 && compareIsoDates(day, endDay) <= 0)
     .map((day) => {
@@ -915,6 +938,17 @@ export async function fetchMorningBaselineRecordsForRange(
       };
     })
     .filter(hasAnyMorningRecordValue);
+
+  return { records, sleepDayTotals };
+}
+
+export async function fetchMorningBaselineRecordsForRange(
+  accessToken: string,
+  startDay: string,
+  endDay: string
+): Promise<OuraRecord[]> {
+  const inputs = await fetchMorningBaselineInputsForRange(accessToken, startDay, endDay);
+  return inputs.records;
 }
 
 export async function fetchCompletedDayMorningRecordsForRange(
@@ -954,7 +988,10 @@ async function buildMorningResult(
 ): Promise<ReturnType<typeof evaluateMorning>> {
   const day = getTodayIsoDate();
   const accessToken = await ensureValidAccessToken();
-  const summaryInputs = await fetchTodaySummaryInputs(accessToken, day);
+  const [summaryInputs, sleepDebtInputs] = await Promise.all([
+    fetchTodaySummaryInputs(accessToken, day),
+    fetchSleepDebtDayTotals(accessToken, day),
+  ]);
   let state = readState();
   let baseline = state.baseline;
   let baselineStatus: 'ready' | 'missing' | 'stale' | 'refresh_failed' = baseline
@@ -964,12 +1001,17 @@ async function buildMorningResult(
   if (!baseline || isBaselineStale(baseline, new Date()) || !isBaselineComplete(baseline)) {
     try {
       const window = getAutomaticBaselineWindow(new Date());
-      const records = await fetchMorningBaselineRecordsForRange(
+      const baselineInputs = await fetchMorningBaselineInputsForRange(
         accessToken,
         window.startDay,
         window.endDay
       );
-      baseline = rebuildAutomaticBaseline(new Date(), records, state.baselineConfig);
+      baseline = rebuildAutomaticBaseline(
+        new Date(),
+        baselineInputs.records,
+        state.baselineConfig,
+        baselineInputs.sleepDayTotals
+      );
       state = updateState({ baseline });
       baseline = state.baseline;
       baselineStatus = 'ready';
@@ -989,6 +1031,12 @@ async function buildMorningResult(
       totalSleepDuration: summaryInputs.sleepRecord?.total_sleep_duration ?? null,
       deepSleepDuration: summaryInputs.sleepRecord?.deep_sleep_duration ?? null,
       remSleepDuration: summaryInputs.sleepRecord?.rem_sleep_duration ?? null,
+      estimatedSleepDebt: buildEstimatedSleepDebt({
+        sleepNeed: baseline?.derived?.sleepNeed,
+        dayTotals: sleepDebtInputs.dayTotals,
+        startDay: sleepDebtInputs.startDay,
+        endDay: sleepDebtInputs.endDay,
+      }),
     },
     thresholds: state.thresholds,
     baselineConfig: state.baselineConfig,
@@ -1151,15 +1199,25 @@ export async function rebuildBaseline(mode: 'manual' | 'automatic'): Promise<voi
   const now = new Date();
   const window = mode === 'manual' ? getManualBaselineWindow(now) : getAutomaticBaselineWindow(now);
   const { baselineConfig } = readState();
-  const records = await fetchMorningBaselineRecordsForRange(
+  const baselineInputs = await fetchMorningBaselineInputsForRange(
     accessToken,
     window.startDay,
     window.endDay
   );
   const baseline =
     mode === 'manual'
-      ? rebuildManualBaseline(now, records, baselineConfig)
-      : rebuildAutomaticBaseline(now, records, baselineConfig);
+      ? rebuildManualBaseline(
+          now,
+          baselineInputs.records,
+          baselineConfig,
+          baselineInputs.sleepDayTotals
+        )
+      : rebuildAutomaticBaseline(
+          now,
+          baselineInputs.records,
+          baselineConfig,
+          baselineInputs.sleepDayTotals
+        );
   updateState({ baseline });
   printJson(baseline);
 }
@@ -1171,9 +1229,7 @@ export async function runMorningSummary(
   const summary = await buildMorningResult(deliveryMode);
 
   if (textMode) {
-    if (summary.message) {
-      printText(summary.message);
-    }
+    printText(summary.message ?? buildMorningText(summary));
     return;
   }
 
@@ -1221,12 +1277,17 @@ export async function runWeekOverview(
   if (!baseline || isBaselineStale(baseline, new Date()) || !isBaselineComplete(baseline)) {
     try {
       const window = getAutomaticBaselineWindow(new Date());
-      const baselineRecords = await fetchMorningBaselineRecordsForRange(
+      const baselineInputs = await fetchMorningBaselineInputsForRange(
         accessToken,
         window.startDay,
         window.endDay
       );
-      baseline = rebuildAutomaticBaseline(new Date(), baselineRecords, state.baselineConfig);
+      baseline = rebuildAutomaticBaseline(
+        new Date(),
+        baselineInputs.records,
+        state.baselineConfig,
+        baselineInputs.sleepDayTotals
+      );
       state = updateState({ baseline });
       baseline = state.baseline;
       baselineStatus = 'ready';

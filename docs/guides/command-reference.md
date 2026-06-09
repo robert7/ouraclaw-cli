@@ -111,9 +111,12 @@ optional `deliveryKey`, `deliveryMode`, `today`, optional `baseline`, `alertMetr
 for actionable metrics that actually contributed to `alertMetrics`.
 
 When available, `today.deepSleepDuration` and `today.remSleepDuration` are included beside total sleep. Both are
-baseline decision metrics and can contribute to `alertMetrics`.
+baseline decision metrics and can contribute to `alertMetrics`. `today.estimatedSleepDebt` is also included when the
+CLI can derive it from the stored sleep-need baseline and the last 14 days of sleep history. It is labeled as
+`derived_from_sleep_history` and does not contribute to `alertMetrics`.
 
-With `--text`, sendable morning output is line-oriented for readability.
+With `--text`, the CLI prints a line-oriented human preview or not-ready status. JSON remains the automation contract
+for delivery decisions; agents should still use `shouldSend` before sending anything.
 
 In `daily-when-ready` mode, a ready day without an alert can still return `shouldSend: true` with a calm morning
 summary message. The result shape stays the same on both calm and attention days; there is no separate morning

@@ -191,6 +191,8 @@ Format rules:
 - Show the morning metrics when present: sleep score, readiness score, temperature deviation, HRV, lowest heart rate,
   total sleep duration, deep sleep duration, and REM sleep duration.
 - Show deep sleep and REM sleep as concise context next to total sleep.
+- If `today.estimatedSleepDebt.status` is not `not_enough_data`, include it as estimated sleep debt. Label it as an
+  estimate and do not mark it as an attention metric.
 - Mark metrics where `metricSignals[].attention` is `true`. Use `⚠️` on WhatsApp, Telegram, Discord, Slack, and
   WebChat/default. Use `ATTENTION` on plain-text channels.
 - Treat `severity: "better"` signals as positive or neutral context, not warnings.
@@ -208,6 +210,7 @@ Good morning! Here's your Oura summary for Monday, Jan 27.
 Today's data looks a bit outside your usual range.
 
 Sleep: ⚠️ 72 | Total 6h 15m | ⚠️ Deep 42m | REM 1h 20m
+Sleep debt estimate: 2h 40m (moderate)
 Readiness: ⚠️ 68 | Body temp +0.2C
 HRV: 39 ms | Lowest HR: 52 bpm
 

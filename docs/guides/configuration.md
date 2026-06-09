@@ -37,6 +37,9 @@ The baseline snapshot stores metadata about its source window plus per-metric bo
 - `deep_sleep_duration`
 - `rem_sleep_duration`
 
+The same snapshot also stores `derived.sleepNeed` for estimated sleep debt. This value is derived from all sleep
+sessions in the baseline window and is not used as a baseline attention metric.
+
 Automatic baseline refresh is attempted by `summary morning` and `summary week-overview` when the stored baseline is
 missing, stale, or incomplete for the current metric set.
 

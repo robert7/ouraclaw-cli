@@ -31,40 +31,51 @@ describe('baseline', () => {
   });
 
   test('builds metric bounds for automatic baseline', () => {
-    const baseline = rebuildAutomaticBaseline(new Date(Date.UTC(2026, 2, 13)), [
-      {
-        day: '2026-03-01',
-        averageHrv: 40,
-        lowestHeartRate: 52,
-        totalSleepDuration: 25000,
-        deepSleepDuration: 3000,
-        remSleepDuration: 4000,
-      },
-      {
-        day: '2026-03-02',
-        averageHrv: 42,
-        lowestHeartRate: 51,
-        totalSleepDuration: 25500,
-        deepSleepDuration: 3600,
-        remSleepDuration: 4300,
-      },
-      {
-        day: '2026-03-03',
-        averageHrv: 44,
-        lowestHeartRate: 50,
-        totalSleepDuration: 26000,
-        deepSleepDuration: 4200,
-        remSleepDuration: 4600,
-      },
-      {
-        day: '2026-03-04',
-        averageHrv: 46,
-        lowestHeartRate: 49,
-        totalSleepDuration: 26500,
-        deepSleepDuration: 4800,
-        remSleepDuration: 4900,
-      },
-    ]);
+    const baseline = rebuildAutomaticBaseline(
+      new Date(Date.UTC(2026, 2, 13)),
+      [
+        {
+          day: '2026-03-01',
+          averageHrv: 40,
+          lowestHeartRate: 52,
+          totalSleepDuration: 25000,
+          deepSleepDuration: 3000,
+          remSleepDuration: 4000,
+        },
+        {
+          day: '2026-03-02',
+          averageHrv: 42,
+          lowestHeartRate: 51,
+          totalSleepDuration: 25500,
+          deepSleepDuration: 3600,
+          remSleepDuration: 4300,
+        },
+        {
+          day: '2026-03-03',
+          averageHrv: 44,
+          lowestHeartRate: 50,
+          totalSleepDuration: 26000,
+          deepSleepDuration: 4200,
+          remSleepDuration: 4600,
+        },
+        {
+          day: '2026-03-04',
+          averageHrv: 46,
+          lowestHeartRate: 49,
+          totalSleepDuration: 26500,
+          deepSleepDuration: 4800,
+          remSleepDuration: 4900,
+        },
+      ],
+      defaultBaselineConfig(),
+      [
+        { day: '2026-03-01', totalSleepDuration: 25_200 },
+        { day: '2026-03-02', totalSleepDuration: 26_100 },
+        { day: '2026-03-03', totalSleepDuration: 27_000 },
+        { day: '2026-03-04', totalSleepDuration: 28_800 },
+        { day: '2026-03-05', totalSleepDuration: 30_600 },
+      ]
+    );
 
     expect(baseline.mode).toBe('calendar-weeks');
     expect(baseline.metrics.averageHrv?.median).toBe(43);
@@ -72,6 +83,11 @@ describe('baseline', () => {
     expect(baseline.metrics.totalSleepDuration?.high).toBe(26125);
     expect(baseline.metrics.deepSleepDuration?.median).toBe(3900);
     expect(baseline.metrics.remSleepDuration?.low).toBe(4225);
+    expect(baseline.derived?.sleepNeed).toMatchObject({
+      status: 'ready',
+      seconds: 28_800,
+      source: 'sleep_total_all_sessions',
+    });
   });
 
   test('detects whether a baseline includes all current metrics', () => {
@@ -97,6 +113,12 @@ describe('baseline', () => {
           ...complete.metrics,
           remSleepDuration: undefined,
         },
+      })
+    ).toBe(false);
+    expect(
+      isBaselineComplete({
+        ...complete,
+        derived: undefined,
       })
     ).toBe(false);
   });

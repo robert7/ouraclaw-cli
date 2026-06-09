@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Added estimated sleep debt context to `summary morning`, derived from the stored sleep-need baseline and recent sleep
+  history without changing morning alert decisions.
+
+### Fixed
+
+- Fixed `summary morning --text` so it prints a human preview/status even when the JSON result is not sendable.
+
 ## [0.6.0] - 2026-06-05
 
 ### Added

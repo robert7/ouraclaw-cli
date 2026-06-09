@@ -15,6 +15,7 @@ const rebuildManualBaseline = vi.fn();
 const validateBaselineConfig = vi.fn((config) => config);
 const isBaselineComplete = vi.fn(() => true);
 const isBaselineStale = vi.fn();
+const buildMorningText = vi.fn();
 const evaluateMorning = vi.fn();
 const buildEveningSummary = vi.fn();
 const createOrReplaceScheduleJobs = vi.fn();
@@ -90,6 +91,7 @@ vi.mock('../src/baseline', () => ({
 }));
 
 vi.mock('../src/morning', () => ({
+  buildMorningText,
   evaluateMorning,
 }));
 
@@ -693,6 +695,39 @@ describe('cli actions', () => {
     await runMorningSummary(true, 'daily-when-ready');
 
     expect(printText).toHaveBeenCalledWith('morning text');
+  });
+
+  test('prints a morning text preview when the result is ready but not sendable', async () => {
+    ensureValidAccessToken.mockResolvedValue('token');
+    fetchOuraData.mockResolvedValue({ data: [] });
+    evaluateMorning.mockReturnValue({
+      dataReady: true,
+      shouldAlert: false,
+      shouldSend: false,
+      deliveryMode: 'unusual-only',
+      today: {
+        day: '2026-03-13',
+        sleepScore: 82,
+        readinessScore: 80,
+        temperatureDeviation: 0,
+      },
+      alertMetrics: [],
+      alertReasons: [],
+      skipReasons: [],
+      metricSignals: [],
+    });
+    buildMorningText.mockReturnValue('calm morning preview');
+
+    const { runMorningSummary } = await import('../src/cli');
+    await runMorningSummary(true);
+
+    expect(buildMorningText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dataReady: true,
+        shouldSend: false,
+      })
+    );
+    expect(printText).toHaveBeenCalledWith('calm morning preview');
   });
 
   test('refreshes stale baseline during canonical morning flow', async () => {

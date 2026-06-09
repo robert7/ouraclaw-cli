@@ -138,6 +138,20 @@ export interface BaselineMetricSnapshot {
   sampleSize: number;
 }
 
+export interface DerivedSleepNeedBaseline {
+  status: 'ready' | 'not_enough_data';
+  seconds: number | null;
+  displayValue: string | null;
+  method: 'sleep_total_p75';
+  source: 'sleep_total_all_sessions';
+  sampleSize: number;
+  minSampleSize: number;
+}
+
+export interface BaselineDerivedValues {
+  sleepNeed?: DerivedSleepNeedBaseline;
+}
+
 export interface ScheduleConfig {
   enabled: boolean;
   timezone: string;
@@ -166,6 +180,7 @@ export interface BaselineSnapshot {
   sourceEndDay: string;
   weeks?: string[];
   metrics: Partial<Record<BaselineMetricKey, BaselineMetricSnapshot>>;
+  derived?: BaselineDerivedValues;
 }
 
 export interface OuraCliState {
@@ -222,6 +237,22 @@ export interface FixedThresholdResult {
   reasons: string[];
 }
 
+export type EstimatedSleepDebtStatus = 'none' | 'low' | 'moderate' | 'high' | 'not_enough_data';
+
+export interface EstimatedSleepDebt {
+  status: EstimatedSleepDebtStatus;
+  valueSeconds: number | null;
+  displayValue: string | null;
+  sleepNeedSeconds: number | null;
+  sleepNeedDisplayValue: string | null;
+  source: 'derived_from_sleep_history';
+  windowDays: number;
+  startDay: string;
+  endDay: string;
+  sampleSize: number;
+  minSampleSize: number;
+}
+
 export type MetricSignalDirection =
   | 'in_range'
   | 'below_baseline'
@@ -254,6 +285,7 @@ export interface MorningToday {
   totalSleepDuration?: number | null;
   deepSleepDuration?: number | null;
   remSleepDuration?: number | null;
+  estimatedSleepDebt?: EstimatedSleepDebt;
 }
 
 export interface MorningInput {

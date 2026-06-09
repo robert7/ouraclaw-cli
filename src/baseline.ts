@@ -1,5 +1,6 @@
 import { BASELINE_METRICS, DEFAULT_BASELINE_CONFIG } from './config';
 import { addDays, getIsoWeekString, getWeekStartMonday, toIsoDate } from './date-utils';
+import { buildDerivedSleepNeedBaseline, SleepDayTotal } from './sleep-debt';
 import { buildMetricSnapshot } from './statistics';
 import {
   BaselineConfig,
@@ -89,7 +90,8 @@ export function getManualBaselineWindow(referenceDate: Date) {
 export function rebuildAutomaticBaseline(
   referenceDate: Date,
   records: OuraRecord[],
-  baselineConfig: BaselineConfig = defaultBaselineConfig()
+  baselineConfig: BaselineConfig = defaultBaselineConfig(),
+  sleepDayTotals: SleepDayTotal[] = []
 ): BaselineSnapshot {
   const window = getAutomaticBaselineWindow(referenceDate);
   return {
@@ -99,13 +101,17 @@ export function rebuildAutomaticBaseline(
     sourceEndDay: window.endDay,
     weeks: window.weeks,
     metrics: buildMetrics(records, baselineConfig),
+    derived: {
+      sleepNeed: buildDerivedSleepNeedBaseline(sleepDayTotals),
+    },
   };
 }
 
 export function rebuildManualBaseline(
   referenceDate: Date,
   records: OuraRecord[],
-  baselineConfig: BaselineConfig = defaultBaselineConfig()
+  baselineConfig: BaselineConfig = defaultBaselineConfig(),
+  sleepDayTotals: SleepDayTotal[] = []
 ): BaselineSnapshot {
   const window = getManualBaselineWindow(referenceDate);
   return {
@@ -114,6 +120,9 @@ export function rebuildManualBaseline(
     sourceStartDay: window.startDay,
     sourceEndDay: window.endDay,
     metrics: buildMetrics(records, baselineConfig),
+    derived: {
+      sleepNeed: buildDerivedSleepNeedBaseline(sleepDayTotals),
+    },
   };
 }
 
@@ -122,5 +131,8 @@ export function isBaselineStale(snapshot: BaselineSnapshot, now: Date): boolean 
 }
 
 export function isBaselineComplete(snapshot: BaselineSnapshot): boolean {
-  return BASELINE_METRICS.every((metric) => Boolean(snapshot.metrics[metric]));
+  return (
+    BASELINE_METRICS.every((metric) => Boolean(snapshot.metrics[metric])) &&
+    Boolean(snapshot.derived?.sleepNeed)
+  );
 }

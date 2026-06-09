@@ -21,7 +21,7 @@ The state file stores:
 - baseline tuning configuration
 - schedule configuration for channel, target, delivery language, timezone, enabled job types, and stored OpenClaw cron
   job IDs
-- baseline snapshot metadata and metric bounds
+- baseline snapshot metadata, metric bounds, and derived sleep-need context
 - confirmed morning delivery state
 
 The CLI creates the parent directory with private permissions and rewrites the file with private permissions after each
@@ -55,6 +55,10 @@ The stored baseline tracks these morning decision metrics when available:
 For each metric the snapshot stores a median plus ordinary low/high bounds. The ordinary band is configurable through a
 lower percentile and its mirrored upper percentile. With the default `25`, the ordinary band is the 25th to 75th
 percentile. A same-day value outside that band becomes a direction-aware metric signal.
+
+The snapshot also stores a derived sleep-need reference used only for estimated sleep debt. This is calculated from the
+75th percentile of daily total sleep across all sleep sessions in the baseline window. It is deliberately separate from
+`metrics` because estimated sleep debt is recap context, not an attention signal.
 
 The morning summary routine combines fixed thresholds and baseline attention signals. Fixed-threshold failures alert
 immediately. For baseline signals, `sleepScore`, `readinessScore`, `totalSleepDuration`, `deepSleepDuration`, and
