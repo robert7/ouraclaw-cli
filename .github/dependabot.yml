@@ -9,6 +9,10 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
+    ignore:
+      - dependency-name: "commander"
+        update-types:
+          - "version-update:semver-major"
     groups:
       phase-1-safe-updates:
         applies-to: "version-updates"

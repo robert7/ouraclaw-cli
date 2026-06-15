@@ -8,6 +8,9 @@ const packageJson = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8')
 ) as {
   version: string;
+  dependencies: {
+    commander: string;
+  };
   engines: {
     node: string;
   };
@@ -116,5 +119,9 @@ describe('cli', () => {
 
   test('declares a Node 20 engine floor', () => {
     expect(packageJson.engines.node).toBe('>=20.0.0');
+  });
+
+  test('keeps Commander on the Node 20-compatible major', () => {
+    expect(packageJson.dependencies.commander).toMatch(/^\^14\./);
   });
 });
