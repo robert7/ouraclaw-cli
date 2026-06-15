@@ -16,6 +16,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Kept `commander` on the Node 20-compatible major and ignored future Dependabot major bumps until the CLI runtime
+  floor changes.
 - Fixed `summary morning --text` so it prints a human preview/status even when the JSON result is not sendable.
 
 ## [0.6.0] - 2026-06-05
