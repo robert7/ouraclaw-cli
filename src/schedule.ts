@@ -61,6 +61,8 @@ const LEGACY_JOB_NAMES = [
 ] as const;
 
 const SKILL_PATH = path.resolve(__dirname, '..', 'skills', 'oura', 'SKILL.md');
+const FINAL_VISIBLE_DELIVERY_INSTRUCTION =
+  'The complete formatted summary or overview must be the final visible response in the chat/thread; do not replace it with a completion status. Intermediate, commentary, or status messages do not count as delivery.';
 
 function runOpenClaw(args: string[]): string {
   return execFileSync('openclaw', args, {
@@ -311,10 +313,10 @@ export function renderCronPrompt(
   const language = `Delivery language: ${schedule.deliveryLanguage}.`;
 
   if (type === 'evening') {
-    return `Read ${SKILL_PATH} and follow the Evening Summary Template. ${destination} ${language}`;
+    return `Read ${SKILL_PATH} and follow the Evening Summary Template. ${FINAL_VISIBLE_DELIVERY_INSTRUCTION} ${destination} ${language}`;
   }
   if (type === 'week-overview') {
-    return `Read ${SKILL_PATH} and follow the Week Overview Template. ${destination} ${language}`;
+    return `Read ${SKILL_PATH} and follow the Week Overview Template. ${FINAL_VISIBLE_DELIVERY_INSTRUCTION} ${destination} ${language}`;
   }
 
   const deliveryMode: OptimizedWatcherDeliveryMode = schedule.morningDeliveryMode ?? 'unusual-only';
@@ -328,7 +330,7 @@ export function renderCronPrompt(
       : 'ouraclaw-cli summary morning-confirm --delivery-key <deliveryKey>';
   const noOutputInstruction =
     'If dataReady is false or shouldSend is false, send nothing and produce no output at all. Do not post a status message, explanation, acknowledgment, or skip notice.';
-  return `Read ${SKILL_PATH}. Run ${command}. ${noOutputInstruction} If shouldSend is true, follow the Morning Summary Template. Confirm successful delivery with ${confirmCommand} only after the send succeeds. ${destination} ${language}`;
+  return `Read ${SKILL_PATH}. Run ${command}. ${noOutputInstruction} If shouldSend is true, follow the Morning Summary Template. ${FINAL_VISIBLE_DELIVERY_INSTRUCTION} Confirm successful delivery with ${confirmCommand} only after the final visible response contains the complete delivered summary. ${destination} ${language}`;
 }
 
 function buildManagedCronJobs(schedule: ScheduleConfig): ManagedCronJobDefinition[] {

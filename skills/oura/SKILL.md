@@ -150,6 +150,9 @@ When producing a scheduled summary or alert, follow these rules:
 - Run the appropriate `ouraclaw-cli` command in JSON mode and use that JSON as the source of truth for the final message.
 - Send the complete formatted summary as a single message to the channel and target specified in the request. Do not
   summarize, abbreviate, or rephrase the final message after composing it.
+- For scheduled delivery, the complete formatted summary or overview must be the final visible response in the
+  chat/thread. Do not replace it with a completion status, and do not treat intermediate, commentary, or status messages
+  as delivery.
 - Follow the request's delivery language for any channel message. If the request specifies Slovak, English, or any
   other language, use that language for all user-visible text in the delivered message.
 - Treat examples in this skill as structure-only unless the request says otherwise. An English example does not
@@ -180,6 +183,8 @@ Interpret the JSON result as the source of truth:
 - If the original command used `--delivery-mode daily-when-ready`, the confirmation command must use the same
   `--delivery-mode daily-when-ready`.
 - Never confirm delivery if the send failed or was skipped.
+- Never run `morning-confirm` until the final visible response contains the complete delivered morning summary.
+  Intermediate, commentary, or status messages do not count as delivery.
 
 Send only the formatted summary, with no extra preamble or commentary.
 
