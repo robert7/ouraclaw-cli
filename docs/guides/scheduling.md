@@ -48,6 +48,14 @@ The walkthrough:
 Scheduled jobs store a delivery language in CLI state and inject it into the cron prompt for the Oura skill. This means
 you can keep the default `English` or choose another language such as `Slovak` without rewriting prompts by hand.
 
+## Delivery Contract
+
+Managed cron prompts require the formatted summary or overview to be the final visible response in the chat/thread.
+Intermediate status, commentary, or completion messages do not count as delivery.
+
+For morning summaries, the delivery confirmation command must run only after that final visible response contains the
+complete delivered summary. Weekly and evening schedules do not use a delivery-confirmation handshake.
+
 ## Morning Summary Watcher Behavior
 
 The morning summary watcher runs `summary morning` repeatedly inside the configured window.

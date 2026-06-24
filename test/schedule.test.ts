@@ -93,6 +93,10 @@ describe('schedule helpers', () => {
 
     expect(prompt).toContain('Morning Summary Template');
     expect(prompt).toContain('summary morning-confirm --delivery-key <deliveryKey>');
+    expect(prompt).toContain('final visible response contains the complete delivered summary');
+    expect(prompt).toContain(
+      'Intermediate, commentary, or status messages do not count as delivery'
+    );
     expect(prompt).toContain('send nothing and produce no output at all');
     expect(prompt).toContain('channel "signal"');
     expect(prompt).toContain('target "+421"');
@@ -109,9 +113,28 @@ describe('schedule helpers', () => {
 
     expect(prompt).toContain('summary morning --delivery-mode daily-when-ready');
     expect(prompt).toContain('send nothing and produce no output at all');
+    expect(prompt).toContain('final visible response contains the complete delivered summary');
     expect(prompt).toContain(
       'summary morning-confirm --delivery-mode daily-when-ready --delivery-key <deliveryKey>'
     );
+  });
+
+  test('renders evening prompts with final visible delivery instructions', () => {
+    const prompt = renderCronPrompt('evening', {
+      channel: 'signal',
+      target: '+421',
+      deliveryLanguage: 'English',
+      morningDeliveryMode: 'unusual-only',
+    });
+
+    expect(prompt).toContain('Evening Summary Template');
+    expect(prompt).toContain(
+      'complete formatted summary or overview must be the final visible response'
+    );
+    expect(prompt).toContain(
+      'Intermediate, commentary, or status messages do not count as delivery'
+    );
+    expect(prompt).not.toContain('morning-confirm');
   });
 
   test('renders weekly overview prompts with the weekly template instructions', () => {
@@ -123,6 +146,13 @@ describe('schedule helpers', () => {
     });
 
     expect(prompt).toContain('Week Overview Template');
+    expect(prompt).toContain(
+      'complete formatted summary or overview must be the final visible response'
+    );
+    expect(prompt).toContain(
+      'Intermediate, commentary, or status messages do not count as delivery'
+    );
+    expect(prompt).not.toContain('morning-confirm');
     expect(prompt).toContain('channel "signal"');
     expect(prompt).toContain('target "+421"');
   });
