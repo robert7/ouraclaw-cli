@@ -123,13 +123,7 @@ export interface BaselineConfig {
 
 export type OptimizedWatcherDeliveryMode = 'unusual-only' | 'daily-when-ready';
 export type WeeklyOverviewDayOfWeek =
-  | 'monday'
-  | 'tuesday'
-  | 'wednesday'
-  | 'thursday'
-  | 'friday'
-  | 'saturday'
-  | 'sunday';
+  'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 
 export interface BaselineMetricSnapshot {
   median: number;
