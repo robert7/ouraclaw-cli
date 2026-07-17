@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 
 - Improved estimated sleep debt to use a 90-day trimmed sleep-need estimate and a 14-day decayed balance where longer
   sleep can pay debt down.
+- Updated development tooling dependencies, including Node.js type definitions, ESLint, Prettier, tsx, and Vitest.
 
 ### Fixed
 
