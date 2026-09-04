@@ -5,3 +5,5 @@ coverage/
 *.d.ts.map
 .DS_Store
 .agents
+*.pyc
+__pycache__
